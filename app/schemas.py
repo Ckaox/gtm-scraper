@@ -1,3 +1,4 @@
+# app/app/schemas.py
 from pydantic import BaseModel, AnyHttpUrl, Field, field_validator
 from typing import List, Optional, Dict, Any
 
@@ -29,12 +30,22 @@ class ScanRequest(BaseModel):
             return None
         return v
 
+
 # -------- Context
 
 class ContextBullet(BaseModel):
-    source_url: AnyHttpUrl
-    bullet: str
-    kind: str  # value_prop | product | about | blog | news | generic
+    """
+    Nota: 'bullet' es el campo estándar.
+    Permitimos también inicializar con 'text=' gracias al alias para
+    ser compatibles con funciones que construyen bullets condensados.
+    """
+    source_url: Optional[AnyHttpUrl] = None
+    bullet: str = Field(alias="text")
+    kind: Optional[str] = "generic"  # value_prop | product | about | blog | news | generic
+
+    class Config:
+        populate_by_name = True  # permite pasar 'text=' al crear el modelo
+
 
 class ContextBlock(BaseModel):
     bullets: List[ContextBullet]
@@ -42,12 +53,14 @@ class ContextBlock(BaseModel):
     social: Dict[str, str]
     company_name: Optional[str] = None
 
+
 # -------- Tech stack
 
 class TechFingerprint(BaseModel):
     category: str
     tool: str
     evidence: Optional[str] = None
+
 
 # -------- Jobs
 
@@ -62,10 +75,12 @@ class JobPosting(BaseModel):
     platform_hint: Optional[str] = None
     source_url: AnyHttpUrl
 
+
 class JobsSignalsSummary(BaseModel):
     hiring_focus: List[str]
     seniority_mix: Dict[str, int]
     functions_count: Dict[str, int]
+
 
 class JobsUsefulness(BaseModel):
     score: float
@@ -74,10 +89,20 @@ class JobsUsefulness(BaseModel):
     freshness_days_p50: Optional[int] = None
     velocity: Dict[str, Any] = {}
 
+
 class JobsBlock(BaseModel):
     postings: List[JobPosting]
     summary: JobsSignalsSummary
     usefulness: JobsUsefulness
+
+
+# -------- Extras (fuentes de empleo)
+
+class JobSource(BaseModel):
+    name: str
+    url: str
+    fetchable: bool = True
+
 
 # -------- Output
 

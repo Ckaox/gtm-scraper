@@ -263,7 +263,7 @@ async def scan(req: ScanRequest):
             entry["ev"].add(ev)
 
     tech = [
-        TechItem(tool=v["tool"], category=v["category"], evidence=" | ".join(sorted(v["ev"])))
+        TechFingerprint(tool=v["tool"], category=v["category"], evidence=" | ".join(sorted(v["ev"])))
         for v in tech_by_tool.values()
     ]
 
