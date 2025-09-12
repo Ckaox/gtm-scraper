@@ -1,20 +1,32 @@
-from pydantic import BaseModel, AnyHttpUrl, Field
+from pydantic import BaseModel, AnyHttpUrl, Field, field_validator
 from typing import List, Optional, Dict, Any
 
 # -------- Inputs
 
 class ScanRequest(BaseModel):
-    # Input obligatorio
     domain: str
-    # Inputs opcionales
-    max_pages: int = Field(default=10, ge=1, le=20)
+    max_pages: int = Field(default=8, ge=1, le=20)
     extra_urls: List[AnyHttpUrl] = []
     careers_overrides: List[AnyHttpUrl] = []
     respect_robots: bool = True
-    timeout_sec: int = 15
+    timeout_sec: int = 10
     return_evidence: bool = True
+
     company_linkedin: Optional[AnyHttpUrl] = None
     company_name: Optional[str] = None
+
+    # --- Validators ---
+    @field_validator("company_linkedin", mode="before")
+    def empty_str_to_none_url(cls, v):
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return None
+        return v
+
+    @field_validator("company_name", mode="before")
+    def empty_str_to_none_name(cls, v):
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return None
+        return v
 
 # -------- Context
 
@@ -32,7 +44,7 @@ class ContextBlock(BaseModel):
 # -------- Tech stack
 
 class TechFingerprint(BaseModel):
-    category: str   # CMS | Ecommerce | Analytics | Marketing | CRM | Chat | ABTest | Ads
+    category: str
     tool: str
     evidence: Optional[str] = None
 
