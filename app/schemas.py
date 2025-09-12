@@ -1,0 +1,76 @@
+from pydantic import BaseModel, AnyHttpUrl, Field
+from typing import List, Optional, Dict, Any
+
+# -------- Inputs
+
+class ScanRequest(BaseModel):
+    # Input obligatorio
+    domain: str
+    # Inputs opcionales
+    max_pages: int = Field(default=10, ge=1, le=20)
+    extra_urls: List[AnyHttpUrl] = []
+    careers_overrides: List[AnyHttpUrl] = []
+    respect_robots: bool = True
+    timeout_sec: int = 15
+    return_evidence: bool = True
+    company_linkedin: Optional[AnyHttpUrl] = None
+    company_name: Optional[str] = None
+
+# -------- Context
+
+class ContextBullet(BaseModel):
+    source_url: AnyHttpUrl
+    bullet: str
+    kind: str  # value_prop | product | about | blog | news | generic
+
+class ContextBlock(BaseModel):
+    bullets: List[ContextBullet]
+    feeds: List[str]
+    social: Dict[str, str]
+    company_name: Optional[str] = None
+
+# -------- Tech stack
+
+class TechFingerprint(BaseModel):
+    category: str   # CMS | Ecommerce | Analytics | Marketing | CRM | Chat | ABTest | Ads
+    tool: str
+    evidence: Optional[str] = None
+
+# -------- Jobs
+
+class JobPosting(BaseModel):
+    title: str
+    location: Optional[str] = None
+    employment_type: Optional[str] = None
+    department: Optional[str] = None
+    date_posted: Optional[str] = None
+    valid_through: Optional[str] = None
+    apply_url: Optional[str] = None
+    platform_hint: Optional[str] = None
+    source_url: AnyHttpUrl
+
+class JobsSignalsSummary(BaseModel):
+    hiring_focus: List[str]
+    seniority_mix: Dict[str, int]
+    functions_count: Dict[str, int]
+
+class JobsUsefulness(BaseModel):
+    score: float
+    tags: List[str]
+    reasons: List[str]
+    freshness_days_p50: Optional[int] = None
+    velocity: Dict[str, Any] = {}
+
+class JobsBlock(BaseModel):
+    postings: List[JobPosting]
+    summary: JobsSignalsSummary
+    usefulness: JobsUsefulness
+
+# -------- Output
+
+class ScanResponse(BaseModel):
+    domain: str
+    pages_crawled: List[str]
+    context: ContextBlock
+    tech_stack: List[TechFingerprint]
+    jobs: JobsBlock
