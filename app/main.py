@@ -7,6 +7,7 @@ from .parsers.context import extract_bullets
 from .parsers.jobs import parse_job_jsonld, summarize_jobs, usefulness_score
 from .parsers.techstack import detect_tech
 from bs4 import BeautifulSoup
+import httpx
 
 app = FastAPI(title="Maxi GTM Scan", version="0.2.0")
 

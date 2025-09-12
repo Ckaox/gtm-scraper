@@ -1,5 +1,5 @@
 import httpx, asyncio
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Optional
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 import urllib.robotparser as robotparser
@@ -22,17 +22,49 @@ except ImportError:
 # ------------------------
 
 def _robots_for(url: str) -> robotparser.RobotFileParser:
-    host = urlparse(url).netloc
+    parsed = urlparse(url)
+    host = parsed.netloc
     if host in _robot_cache:
         return _robot_cache[host]
     rp = robotparser.RobotFileParser()
-    rp.set_url(f"https://{host}/robots.txt")
+    scheme = parsed.scheme or "https"
+    rp.set_url(f"{scheme}://{host}/robots.txt")
     try:
         rp.read()
     except Exception:
         pass
     _robot_cache[host] = rp
     return rp
+
+async def fetch_html(
+    client: httpx.AsyncClient,
+    url: str,
+    respect_robots: bool = True,
+    timeout: float = 10.0,
+) -> Tuple[str, Optional[str]]:
+    """
+    Devuelve (url, html) o (url, None) si no se pudo obtener.
+    Captura errores y no propaga excepciones.
+    """
+    try:
+        if respect_robots:
+            rp = _robots_for(url)
+            # Si no hay reglas cargadas, seguimos (fail-open).
+            try:
+                # Intenta con nuestro UA y con '*'
+                ua = DEFAULT_HEADERS.get("User-Agent", "*")
+                if hasattr(rp, "can_fetch"):
+                    if not (rp.can_fetch(ua, url) or rp.can_fetch("*", url)):
+                        return (url, None)
+            except Exception:
+                pass
+
+        resp = await client.get(url, timeout=timeout)
+        resp.raise_for_status()
+        return (url, resp.text)
+    except Exception:
+        return (url, None)
+
 
 async def fetch_many(urls: List[str], respect_robots: bool=True, timeout=10.0):
     async with httpx.AsyncClient(
