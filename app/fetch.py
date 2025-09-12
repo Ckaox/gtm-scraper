@@ -56,3 +56,29 @@ def discover_feeds_from_html(base_url: str, html: str):
         if href:
             feeds.add(httpx.URL(base_url).join(href).human_repr())
     return list(feeds)
+
+from urllib.parse import urlparse, urljoin
+
+def extract_internal_links(base_url: str, html: str, max_links: int = 200) -> list[str]:
+    """Devuelve enlaces internos únicos (mismo dominio) encontrados en la página."""
+    if not html:
+        return []
+    base = httpx.URL(base_url)
+    host = base.host
+    soup = BeautifulSoup(html, "lxml")
+    out = []
+    seen = set()
+    for a in soup.find_all("a", href=True):
+        href = a.get("href")
+        try:
+            absu = httpx.URL(base).join(href).human_repr()
+        except Exception:
+            continue
+        u = httpx.URL(absu)
+        # mismo dominio o subdominio
+        if u.host and host and u.host.endswith(host.split(".", 1)[-1]):  # permite subdominios
+            if absu not in seen:
+                seen.add(absu); out.append(absu)
+        if len(out) >= max_links:
+            break
+    return out

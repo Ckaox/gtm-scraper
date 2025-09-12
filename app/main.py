@@ -35,16 +35,41 @@ def _socials_from_html(html: str) -> dict:
 async def scan(req: ScanRequest):
     base = base_from_domain(req.domain)
 
-    # 1) URLs candidatas (internas) + opcionales del request
-    candidates = discover_candidate_urls(base)
+    # Intenta primero scrapear la home
+    from .fetch import extract_internal_links
+    from .util import keyword_score, looks_blocklisted, discover_candidate_urls
+
+    home_html = (await fetch_many([base], respect_robots=req.respect_robots, timeout=req.timeout_sec))[0][1]
+
+    candidates = []
+    if home_html:
+        # 1) saca enlaces internos
+        links = extract_internal_links(base, home_html, max_links=300)
+        # 2) asigna puntaje por keywords (EN/ES)
+        scored = []
+        for u in links:
+            if looks_blocklisted(u):
+                continue
+            scored.append((keyword_score(httpx.URL(u).path), u))
+        scored.sort(reverse=True, key=lambda x: x[0])
+
+        # 3) home + top relevantes
+        top = [u for _, u in scored]
+        candidates = [base] + top
+    else:
+        # fallback: paths EN/ES por defecto
+        candidates = discover_candidate_urls(base)
+
+    # Merge con opcionales
     candidates += [str(u) for u in req.extra_urls] + [str(u) for u in req.careers_overrides]
-    # dedupe y cap
-    seen = set()
-    clean = []
+
+    # Dedupe y limitar por presupuesto
+    seen = set(); clean = []
     for u in candidates:
         if u not in seen and not looks_blocklisted(u):
             seen.add(u); clean.append(u)
     candidates = clean[:req.max_pages]
+
 
     # 2) Fetch
     fetched = await fetch_many(candidates, respect_robots=req.respect_robots, timeout=req.timeout_sec)
