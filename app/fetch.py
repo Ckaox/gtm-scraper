@@ -1,9 +1,10 @@
-import httpx, asyncio
+import os
+import asyncio
 from typing import Tuple, List, Dict, Optional
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
+import httpx
 from bs4 import BeautifulSoup
 import urllib.robotparser as robotparser
-import os
 
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; MaxiGTM/0.1; +https://example.com/bot)",
@@ -21,6 +22,7 @@ except ImportError:
     HTTP2 = False
 # ------------------------
 
+
 def _robots_for(url: str) -> robotparser.RobotFileParser:
     parsed = urlparse(url)
     host = parsed.netloc
@@ -32,9 +34,11 @@ def _robots_for(url: str) -> robotparser.RobotFileParser:
     try:
         rp.read()
     except Exception:
+        # Si falla la lectura, dejamos el parser “vacío” en cache para no reintentar.
         pass
     _robot_cache[host] = rp
     return rp
+
 
 async def fetch_html(
     client: httpx.AsyncClient,
@@ -49,63 +53,84 @@ async def fetch_html(
     try:
         if respect_robots:
             rp = _robots_for(url)
-            # Si no hay reglas cargadas, seguimos (fail-open).
             try:
-                # Intenta con nuestro UA y con '*'
                 ua = DEFAULT_HEADERS.get("User-Agent", "*")
-                if hasattr(rp, "can_fetch"):
-                    if not (rp.can_fetch(ua, url) or rp.can_fetch("*", url)):
-                        return (url, None)
+                # Intentamos con nuestro UA y con '*' por compatibilidad
+                if hasattr(rp, "can_fetch") and not (rp.can_fetch(ua, url) or rp.can_fetch("*", url)):
+                    return (url, None)
             except Exception:
+                # Si algo falla evaluando robots, no bloqueamos (fail-open)
                 pass
 
-        resp = await client.get(url, timeout=timeout)
+        resp = await client.get(url, timeout=timeout, follow_redirects=True)
         resp.raise_for_status()
         return (url, resp.text)
     except Exception:
         return (url, None)
 
 
-async def fetch_many(urls: List[str], respect_robots: bool=True, timeout=10.0):
-    async with httpx.AsyncClient(
-        http2=HTTP2, headers=DEFAULT_HEADERS, follow_redirects=True
-    ) as client:
-        tasks = [fetch_html(client, u, respect_robots=respect_robots, timeout=timeout) for u in urls]
-        return await asyncio.gather(*tasks)
+async def fetch_many(
+    urls: List[str],
+    respect_robots: bool = True,
+    timeout: float = 10.0,
+) -> List[Tuple[str, Optional[str]]]:
+    """
+    Ejecuta peticiones en paralelo y devuelve [(url, html|None), ...].
+    """
+    async with httpx.AsyncClient(http2=HTTP2, headers=DEFAULT_HEADERS, follow_redirects=True) as client:
+        tasks = [
+            fetch_html(client, u, respect_robots=respect_robots, timeout=timeout)
+            for u in urls
+        ]
+        results = await asyncio.gather(*tasks)
+        return results
 
-def discover_feeds_from_html(base_url: str, html: str):
+
+def discover_feeds_from_html(base_url: str, html: str) -> List[str]:
+    """
+    Descubre enlaces a feeds (RSS/Atom) en el HTML.
+    """
     feeds = set()
     if not html:
         return []
     soup = BeautifulSoup(html, "lxml")
-    for link in soup.find_all("link", attrs={"type": ["application/rss+xml","application/atom+xml"]}):
+    for link in soup.find_all("link", attrs={"type": ["application/rss+xml", "application/atom+xml"]}):
         href = link.get("href")
         if href:
-            feeds.add(httpx.URL(base_url).join(href).human_repr())
+            # Sin .human_repr(): usamos urljoin o str(httpx.URL(...))
+            feeds.add(urljoin(base_url, href))
     return list(feeds)
 
-from urllib.parse import urlparse, urljoin
 
-def extract_internal_links(base_url: str, html: str, max_links: int = 200) -> list[str]:
-    """Devuelve enlaces internos únicos (mismo dominio) encontrados en la página."""
+def extract_internal_links(base_url: str, html: str, max_links: int = 200) -> List[str]:
+    """
+    Devuelve enlaces internos únicos (mismo dominio o subdominios) encontrados en la página.
+    """
     if not html:
         return []
     base = httpx.URL(base_url)
     host = base.host
     soup = BeautifulSoup(html, "lxml")
-    out = []
+    out: List[str] = []
     seen = set()
+
     for a in soup.find_all("a", href=True):
         href = a.get("href")
         try:
-            absu = httpx.URL(base).join(href).human_repr()
+            abs_url = str(base.join(href))  # sin .human_repr()
         except Exception:
             continue
-        u = httpx.URL(absu)
-        # mismo dominio o subdominio
-        if u.host and host and u.host.endswith(host.split(".", 1)[-1]):  # permite subdominios
-            if absu not in seen:
-                seen.add(absu); out.append(absu)
+
+        u = httpx.URL(abs_url)
+        # mismo dominio o subdominio (permitimos subdominios)
+        if u.host and host:
+            # Coincidencia por TLD+SLD básicos (ej.: ejemplo.com)
+            if u.host.endswith(host.split(".", 1)[-1]):
+                if abs_url not in seen:
+                    seen.add(abs_url)
+                    out.append(abs_url)
+
         if len(out) >= max_links:
             break
+
     return out
