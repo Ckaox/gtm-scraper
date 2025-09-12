@@ -2,8 +2,42 @@ import re
 from urllib.parse import urljoin, urlparse
 import tldextract
 
-DEFAULT_PATHS = ["/", "/about", "/company", "/product", "/platform", "/solutions",
-                 "/blog", "/news", "/press", "/careers", "/jobs"]
+DEFAULT_PATHS = [  # fallback si falla la home
+    "/", "/about", "/company", "/product", "/platform", "/solutions",
+    "/blog", "/news", "/press", "/careers", "/jobs",
+    # ES
+    "/es", "/empresa", "/quienes-somos", "/nosotros",
+    "/producto", "/productos", "/servicios", "/soluciones",
+    "/blog", "/noticias", "/prensa",
+    "/empleo", "/empleos", "/trabajo", "/trabaja-con-nosotros", "/carreras", "/talento", "/equipo"
+]
+
+PRIORITY_KEYWORDS = {
+    "about": ["about", "company", "quienes-somos", "nosotros", "empresa"],
+    "product": ["product", "products", "platform", "solution", "solutions", "producto", "productos", "servicios", "soluciones"],
+    "blog": ["blog"],
+    "news": ["news", "press", "noticias", "prensa"],
+    "careers": ["careers", "jobs", "empleo", "empleos", "trabajo", "talento", "carreras", "trabaja", "join-us"]
+}
+
+KEYWORD_WEIGHTS = {
+    "careers": 3,
+    "product": 3,
+    "about": 2,
+    "news": 2,
+    "blog": 1,
+}
+
+def keyword_score(url_path: str) -> int:
+    path = url_path.lower()
+    score = 0
+    for bucket, words in PRIORITY_KEYWORDS.items():
+        if any(w in path for w in words):
+            score += KEYWORD_WEIGHTS.get(bucket, 1)
+    # pequeños boosts
+    if path.endswith("/") or path.count("/") <= 3:
+        score += 1
+    return score
 
 BLOCKLIST_PATTERNS = re.compile(r"(privacy|terms|cookie|login|signin|signup|account)", re.I)
 
