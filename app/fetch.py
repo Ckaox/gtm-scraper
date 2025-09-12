@@ -1,8 +1,9 @@
 import httpx, asyncio
-from urllib.parse import urlparse
 from typing import Tuple, List, Dict
+from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 import urllib.robotparser as robotparser
+import os
 
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; MaxiGTM/0.1; +https://example.com/bot)",
@@ -11,6 +12,14 @@ DEFAULT_HEADERS = {
 
 # cache simple de robots por host
 _robot_cache: Dict[str, robotparser.RobotFileParser] = {}
+
+# --- Fallback HTTP/2 ---
+HTTP2 = os.getenv("HTTP2", "1") == "1"  # default: ON
+try:
+    import h2  # noqa: F401
+except ImportError:
+    HTTP2 = False
+# ------------------------
 
 def _robots_for(url: str) -> robotparser.RobotFileParser:
     host = urlparse(url).netloc
@@ -25,24 +34,10 @@ def _robots_for(url: str) -> robotparser.RobotFileParser:
     _robot_cache[host] = rp
     return rp
 
-async def fetch_html(client: httpx.AsyncClient, url: str, respect_robots: bool=True, timeout=10.0) -> Tuple[str, str]:
-    try:
-        if respect_robots:
-            rp = _robots_for(url)
-            if hasattr(rp, "can_fetch") and not rp.can_fetch(DEFAULT_HEADERS["User-Agent"], url):
-                return url, ""  # bloqueado por robots
-
-        r = await client.get(url, timeout=timeout)
-        r.raise_for_status()
-        ct = r.headers.get("content-type","")
-        if "text/html" not in ct and "application/xhtml" not in ct:
-            return str(r.url), ""
-        return str(r.url), r.text
-    except Exception:
-        return url, ""
-
 async def fetch_many(urls: List[str], respect_robots: bool=True, timeout=10.0):
-    async with httpx.AsyncClient(http2=True, headers=DEFAULT_HEADERS, follow_redirects=True) as client:
+    async with httpx.AsyncClient(
+        http2=HTTP2, headers=DEFAULT_HEADERS, follow_redirects=True
+    ) as client:
         tasks = [fetch_html(client, u, respect_robots=respect_robots, timeout=timeout) for u in urls]
         return await asyncio.gather(*tasks)
 
