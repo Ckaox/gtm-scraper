@@ -9,6 +9,7 @@ class ScanRequest(BaseModel):
     extra_urls: List[AnyHttpUrl] = []
     careers_overrides: List[AnyHttpUrl] = []
     respect_robots: bool = True
+    include_feeds: bool = False
     timeout_sec: int = 10
     return_evidence: bool = True
 
@@ -86,3 +87,4 @@ class ScanResponse(BaseModel):
     context: ContextBlock
     tech_stack: List[TechFingerprint]
     jobs: JobsBlock
+    job_sources: List[JobSource] = []
