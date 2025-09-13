@@ -15,9 +15,15 @@ from .util import (
 )
 from .fetch import fetch_many, discover_feeds_from_html
 from .parsers.context import extract_bullets
-from .parsers.jobs import parse_job_jsonld, summarize_jobs, usefulness_score
 from .parsers.techstack import detect_tech
-from .parsers.jobs_sources import discover_job_sources
+from .parsers.news import extract_news_from_html
+
+
+# ===========================
+# Config rápida (tuning perf)
+# ===========================
+MAX_INTERNAL_LINKS = 150          # antes 300
+TOP_CANDIDATES_BY_KEYWORD = 20    # cortar top-K por score
 
 
 # ---------------------------
@@ -31,14 +37,23 @@ def condense_bullets(raw_bullets: List["ContextBullet"], max_out: int = 10) -> L
     """
     texts = []
     for b in raw_bullets:
-        t = getattr(b, "text", None) or (b if isinstance(b, str) else None)
+        # Acepta ContextBullet(bullet=...) o ContextBullet(text=...)
+        t = (
+            getattr(b, "text", None)
+            or getattr(b, "bullet", None)
+            or (b if isinstance(b, str) else None)
+        )
         if not t:
             continue
         s = t.strip()
         if not s:
             continue
         low = s.lower()
-        if any(x in low for x in ["cookies", "aviso legal", "privacidad", "privacy", "terms", "condiciones", "copyright"]):
+        # filtra ruido legal/común
+        if any(x in low for x in [
+            "cookies", "aviso legal", "privacidad", "privacy",
+            "terms", "condiciones", "copyright"
+        ]):
             continue
         texts.append(s)
 
@@ -140,7 +155,6 @@ def health():
 @app.post("/scan", response_model=ScanResponse)
 async def scan(req: ScanRequest):
     base = base_from_domain(req.domain)
-    job_sources = []
 
     # 1) Intentar scrapear la home
     from .fetch import extract_internal_links  # import local para evitar ciclos
@@ -148,8 +162,8 @@ async def scan(req: ScanRequest):
 
     candidates: List[str] = []
     if home_html:
-        # 1) links internos
-        links = extract_internal_links(base, home_html, max_links=300)
+        # 1) links internos (reducido por perf)
+        links = extract_internal_links(base, home_html, max_links=MAX_INTERNAL_LINKS)
         # 2) puntuar por keywords (EN/ES)
         scored = []
         for u in links:
@@ -157,8 +171,8 @@ async def scan(req: ScanRequest):
                 continue
             scored.append((keyword_score(httpx.URL(u).path), u))
         scored.sort(reverse=True, key=lambda x: x[0])
-        # 3) home + top relevantes
-        top = [u for _, u in scored]
+        # 3) home + top relevantes (recortado por perf)
+        top = [u for _, u in scored[:TOP_CANDIDATES_BY_KEYWORD]]
         candidates = [base] + top
     else:
         # Fallback: paths EN/ES por defecto
@@ -179,18 +193,19 @@ async def scan(req: ScanRequest):
 
     pages: List[str] = []
     bullets: List[ContextBullet] = []
-    feeds, social, tech, jobs = set(), {}, [], []
+    feeds, social, tech = set(), {}, []
+    news_items: List[NewsItem] = []
 
     normalized_name = normalize_company_name(req.company_name)
 
-    # 3) Procesar páginas y descubrir fuentes de empleo
+    # 3) Procesar páginas
     for final_url, html in fetched:
         if not html:
             continue
 
         pages.append(final_url)
 
-        # Contexto
+        # Contexto (bullets brutos)
         bullets.extend(extract_bullets(final_url, html, company_name=normalized_name))
 
         # Feeds (solo si lo pide el request)
@@ -206,53 +221,13 @@ async def scan(req: ScanRequest):
         # Tech
         tech.extend(detect_tech(final_url, html))
 
-        # Jobs (JSON-LD locales)
-        jobs.extend(parse_job_jsonld(final_url, html))
+        # Noticias internas: si la URL parece blog/news/press, o si hay <article>
+        path_lower = httpx.URL(final_url).path.lower()
+        looks_news = any(k in path_lower for k in ("blog", "news", "press", "novedad", "prensa"))
+        if looks_news or BeautifulSoup(html, "lxml").find("article"):
+            news_items.extend(extract_news_from_html(final_url, html, max_items=5))
 
-        # Detectar portales/páginas de careers
-        for src_name, jobs_url, fetchable in discover_job_sources(final_url, html):
-            try:
-                jobs_url_abs = str(httpx.URL(final_url).join(jobs_url))
-            except Exception:
-                jobs_url_abs = jobs_url
-
-            job_sources.append({"name": src_name, "url": jobs_url_abs, "fetchable": fetchable})
-
-            if fetchable and not looks_blocklisted(jobs_url_abs):
-                candidates.append(jobs_url_abs)
-
-    # Si vino linkedin por input, priorizarlo
-    if req.company_linkedin:
-        social["linkedin"] = str(req.company_linkedin)
-
-    # 4) Re-fetch selectivo de nuevas URLs de empleo (solo delta)
-    seen_pages = set(pages)
-    new_candidates: List[str] = []
-    for u in candidates:
-        if u not in seen_pages and not looks_blocklisted(u):
-            seen_pages.add(u)
-            new_candidates.append(u)
-
-    if new_candidates:
-        fetched_jobs = await fetch_many(new_candidates, respect_robots=req.respect_robots, timeout=req.timeout_sec)
-        for final_url, html in fetched_jobs:
-            if not html:
-                continue
-            jobs.extend(parse_job_jsonld(final_url, html))
-
-    # 5) Dedupe jobs por (title + apply/source)
-    j_seen, j_uniq = set(), []
-    for j in jobs:
-        k = (j.title.lower(), j.apply_url or j.source_url)
-        if j.title and k not in j_seen:
-            j_seen.add(k)
-            j_uniq.append(j)
-
-    # 6) Resumen + utilidad de ofertas
-    summary = summarize_jobs(j_uniq)
-    usef = usefulness_score(j_uniq)
-
-    # 7) Agrupar tech por herramienta (evita duplicados y une evidencias)
+    # 4) Agrupar tech por herramienta (evita duplicados y une evidencias)
     tech_by_tool = {}
     for t in tech:
         key = getattr(t, "tool", None) or getattr(t, "Tool", None) or "Desconocido"
@@ -267,7 +242,7 @@ async def scan(req: ScanRequest):
         for v in tech_by_tool.values()
     ]
 
-    # 8) Context condensado
+    # 5) Context condensado
     context_block = ContextBlock(
         bullets=[ContextBullet(text=t) for t in condense_bullets(bullets, max_out=10)],
         feeds=list(feeds) if req.include_feeds else [],
@@ -275,16 +250,14 @@ async def scan(req: ScanRequest):
         company_name=normalized_name
     )
 
-    # 9) Respuesta final
+    # 6) Respuesta final (sin jobs por ahora, con news)
     return ScanResponse(
         domain=domain_of(base),
         pages_crawled=pages,
         context=context_block,
         tech_stack=tech,
-        jobs=JobsBlock(
-            postings=j_uniq[:120],
-            summary=JobsSignalsSummary(**summary),
-            usefulness=JobsUsefulness(**usef)
-        ),
-        job_sources=[JobSource(**js) for js in job_sources]
+        jobs=None,            # Jobs fuera del pipeline por ahora
+        job_sources=[],       # vacío por ahora
+        news=news_items[:5],  # últimas 5 noticias internas si existen
     )
+

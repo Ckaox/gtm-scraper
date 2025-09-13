@@ -103,6 +103,12 @@ class JobSource(BaseModel):
     url: str
     fetchable: bool = True
 
+# -------- News (novedades internas del sitio)
+
+class NewsItem(BaseModel):
+    title: str
+    body: str
+    url: AnyHttpUrl
 
 # -------- Output
 
@@ -111,5 +117,8 @@ class ScanResponse(BaseModel):
     pages_crawled: List[str]
     context: ContextBlock
     tech_stack: List[TechFingerprint]
-    jobs: JobsBlock
+    # Jobs por ahora opcional (lo quitamos del pipeline de scraping)
+    jobs: Optional[JobsBlock] = None
     job_sources: List[JobSource] = []
+    news: List[NewsItem] = []  
+
