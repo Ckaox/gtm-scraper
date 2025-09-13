@@ -49,16 +49,14 @@ class ContextBullet(BaseModel):
 
 class ContextBlock(BaseModel):
     bullets: List[ContextBullet]
-    feeds: List[str]
-    social: Dict[str, str]
-    company_name: Optional[str] = None
+    # Removed feeds as it doesn't provide useful information
 
 
 # -------- Tech stack
 
 class TechFingerprint(BaseModel):
-    category: str
-    tool: str
+    category: str  # Will show technology category instead of numbers
+    tools: List[str] = []  # List of tools in this category
     evidence: Optional[str] = None
 
 
@@ -88,7 +86,13 @@ class SEOMetrics(BaseModel):
     meta_description_length: Optional[int] = None
     has_structured_data: bool = False
     has_sitemap_link: bool = False
-    page_load_indicators: List[str] = []
+    page_load_time_ms: Optional[int] = None  # Page load time in milliseconds
+    h1_count: Optional[int] = None
+    h2_count: Optional[int] = None
+    image_alt_missing: Optional[int] = None  # Number of images without alt text
+    internal_links_count: Optional[int] = None
+    external_links_count: Optional[int] = None
+    page_size_kb: Optional[float] = None  # Page size in KB
 
 # -------- News (novedades internas del sitio)
 
@@ -100,21 +104,18 @@ class NewsItem(BaseModel):
 # -------- Output
 
 class ScanResponse(BaseModel):
+    # Reorganized order: Domain → Company Name → Context → Social → Industry → Tech → Competitors → SEO
     domain: str
-    pages_crawled: List[str]
+    company_name: Optional[str] = None
     context: ContextBlock
-    tech_stack: List[TechFingerprint]
-    news: List[NewsItem] = []                 
-    emails: List[str] = []      
-    contact_pages: List[str] = []                       
+    social: Dict[str, Any] = {}  # Social networks + emails combined
     industry: Optional[str] = None                
     industry_secondary: Optional[str] = None
-    industry_evidence: List[Dict[str, object]] = []  # opcional: guarda el resultado de detectar_industrias(...)
-    
-    # NEW GTM Intelligence fields
-    linkedin_info: Optional[LinkedInInfo] = None
-    growth_signals: Optional[GrowthSignals] = None
-    company_maturity: Optional[CompanyMaturity] = None
-    seo_metrics: Optional[SEOMetrics] = None
+    tech_stack: List[TechFingerprint] = []  # Changed to have default empty list
     competitors: List[str] = []  # Competitor domains/companies detected
-    gtm_score: float = 0.0  # Overall GTM targeting score
+    seo_metrics: Optional[SEOMetrics] = None
+    
+    # Optional internal data (shown conditionally)
+    pages_crawled: List[str] = []
+    recent_news: List[NewsItem] = []  # Only 3 most recent news
+    contact_pages: List[str] = []

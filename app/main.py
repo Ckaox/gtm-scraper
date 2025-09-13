@@ -1,8 +1,9 @@
 # app/app/main.py
 from fastapi import FastAPI
-from typing import List
+from typing import List, Dict, Any
 from bs4 import BeautifulSoup
 import httpx
+import time
 
 from .schemas import *
 from .util import (
@@ -18,7 +19,8 @@ from .parsers.context import extract_bullets
 from .parsers.techstack import detect_tech
 from .parsers.news import extract_news_from_html
 from .parsers.emails import extract_emails
-from .parsers.industry import detectar_industrias, detectar_principal_y_secundaria
+from .parsers.industry import detectar_principal_y_secundaria, detectar_industrias
+from .parsers.company_name import extract_company_name_from_html
 from .parsers.linkedin import extract_linkedin_url_from_html, get_company_size_segment, analyze_company_maturity_simple
 from .parsers.growth_signals import detect_growth_signals, calculate_growth_score
 from .parsers.seo_metrics import extract_seo_metrics
@@ -37,7 +39,7 @@ MAX_PAGES_FREE_PLAN = 6           # Límite para plan free de Render
 # Utilidades locales
 # ---------------------------
 
-def condense_bullets(raw_bullets: List["ContextBullet"], max_out: int = 10) -> List[str]:
+def condense_bullets(raw_bullets: List["ContextBullet"], max_out: int = 8) -> List[str]:
     """
     Selecciona hasta max_out frases útiles priorizando contenido con keywords de negocio.
     Deduplica y evita secciones legales o repetitivas.
@@ -94,6 +96,7 @@ def condense_bullets(raw_bullets: List["ContextBullet"], max_out: int = 10) -> L
 
 
 def _socials_from_html(html: str) -> dict:
+    """Extract social networks from HTML"""
     out = {}
     if not html:
         return out
@@ -165,7 +168,9 @@ async def scan(req: ScanRequest):
 
     # 1) Intentar scrapear la home
     from .fetch import extract_internal_links  # import local para evitar ciclos
+    start_time = time.time()
     home_html = (await fetch_many([base], respect_robots=req.respect_robots, timeout=req.timeout_sec))[0][1]
+    home_load_time = int((time.time() - start_time) * 1000)
 
     candidates: List[str] = []
     if home_html:
@@ -203,19 +208,16 @@ async def scan(req: ScanRequest):
 
     pages: List[str] = []
     bullets: List[ContextBullet] = []
-    feeds, social, tech = set(), {}, []
+    social = {}
+    tech = []
     news_items: List[NewsItem] = []
     emails: List[str] = []
     contact_pages: List[str] = []
     
-    # GTM Intelligence variables
-    linkedin_url = None
-    all_growth_signals = {}
-    all_seo_metrics = {}
+    # Competitor detection variables
     competitors_found = set()
-    employee_count = None
 
-    normalized_name = normalize_company_name(req.company_name)
+    normalized_name = normalize_company_name(req.company_name) if req.company_name else None
 
     # 3) Procesar páginas
     for final_url, html in fetched:
@@ -224,23 +226,18 @@ async def scan(req: ScanRequest):
 
         pages.append(final_url)
 
-        # Contexto (bullets brutos)
+        # Contexto (bullets brutos) - reducido
         bullets.extend(extract_bullets(final_url, html, company_name=normalized_name))
 
-        # Feeds (solo si lo pide el request)
-        if req.include_feeds:
-            for f in discover_feeds_from_html(final_url, html):
-                feeds.add(f)
-
-        # Social
+        # Social networks extraction
         s = _socials_from_html(html)
         for k, v in s.items():
             social.setdefault(k, v)
 
-        # Tech
+        # Tech detection (ahora agrupado por categoría)
         tech.extend(detect_tech(final_url, html))
 
-        # Emails
+        # Emails (will be moved to social)
         page_emails = extract_emails(html)
         emails.extend(page_emails)
 
@@ -248,117 +245,101 @@ async def scan(req: ScanRequest):
         if any(contact_word in final_url.lower() for contact_word in ["contact", "contacto", "about", "empresa"]):
             contact_pages.append(final_url)
 
-        # LinkedIn URL detection
-        if not linkedin_url:
-            linkedin_url = extract_linkedin_url_from_html(html, final_url)
-
-        # Growth signals detection
-        growth_signals = detect_growth_signals(html, final_url)
-        for key, value in growth_signals.items():
-            if key not in all_growth_signals:
-                all_growth_signals[key] = []
-            if isinstance(value, list):
-                all_growth_signals[key].extend(value)
-            else:
-                all_growth_signals[key].append(value)
-
-        # SEO metrics (solo para la home page para ser eficiente)
-        if final_url == base or "/es" in final_url or final_url.endswith("/"):
-            seo_metrics = extract_seo_metrics(html, final_url)
-            all_seo_metrics.update(seo_metrics)
-
         # Competitor detection
-        detected_competitors = detect_competitors_from_content(html, principal if 'principal' in locals() else None)
+        detected_competitors = detect_competitors_from_content(html, None)  # We'll fix this
         competitors_found.update(detected_competitors)
 
-        # Noticias internas: si la URL parece blog/news/press, o si hay <article>
+        # Noticias internas: limitadas a 3 más recientes
         path_lower = httpx.URL(final_url).path.lower()
         looks_news = any(k in path_lower for k in ("blog", "news", "press", "novedad", "prensa"))
         if looks_news or BeautifulSoup(html, "lxml").find("article"):
-            news_items.extend(extract_news_from_html(final_url, html, max_items=5))
+            page_news = extract_news_from_html(final_url, html, max_items=2)  # Reducido a 2 por página
+            news_items.extend(page_news)
 
-    # 4) Agrupar tech por herramienta (evita duplicados y une evidencias)
-    tech_by_tool = {}
+    # 4) Company name extraction con múltiples métodos
+    company_name = extract_company_name_from_html(
+        home_html if home_html else "", 
+        req.domain, 
+        fallback_name=normalized_name
+    )
+
+    # 5) Agrupar tech por categoría (nueva estructura)
+    tech_by_category = {}
     for t in tech:
-        key = getattr(t, "tool", None) or getattr(t, "Tool", None) or "Desconocido"
-        cat = getattr(t, "category", None) or getattr(t, "Category", None) or "Otros"
-        ev  = getattr(t, "evidence", None) or getattr(t, "Evidence", None) or ""
-        entry = tech_by_tool.setdefault(key, {"tool": key, "category": cat, "ev": set()})
-        if ev:
-            entry["ev"].add(ev)
+        category = getattr(t, "category", "Other")
+        tools = getattr(t, "tools", [])
+        evidence = getattr(t, "evidence", "")
+        
+        if category not in tech_by_category:
+            tech_by_category[category] = {
+                "tools": set(),
+                "evidence": []
+            }
+        
+        if isinstance(tools, list):
+            tech_by_category[category]["tools"].update(tools)
+        else:
+            tech_by_category[category]["tools"].add(tools)
+        
+        if evidence:
+            tech_by_category[category]["evidence"].append(evidence)
 
-    tech = [
-        TechFingerprint(tool=v["tool"], category=v["category"], evidence=" | ".join(sorted(v["ev"])))
-        for v in tech_by_tool.values()
+    tech_stack = [
+        TechFingerprint(
+            category=cat,
+            tools=list(data["tools"]),
+            evidence=" | ".join(data["evidence"][:2])  # Limit evidence
+        )
+        for cat, data in tech_by_category.items()
     ]
 
-    # 5) Context condensado
+    # 6) Context condensado (sin feeds)
     context_block = ContextBlock(
-        bullets=[ContextBullet(text=t) for t in condense_bullets(bullets, max_out=10)],
-        feeds=list(feeds) if req.include_feeds else [],
-        social=social,
-        company_name=normalized_name
+        bullets=[ContextBullet(text=t) for t in condense_bullets(bullets, max_out=8)]
     )
 
-    # 6) Detectar industria del texto consolidado
+    # 7) Detectar industria del texto consolidado
     texto_completo = " ".join([b.bullet for b in context_block.bullets]) + " " + " ".join(pages)
-    evidencias = detectar_industrias(texto_completo, top_k=3, min_score=1)
     principal, secundaria = detectar_principal_y_secundaria(texto_completo)
 
-    # 7) Procesar GTM Intelligence
-    
-    # LinkedIn info
-    linkedin_info = None
-    if req.company_linkedin:
-        # Si el usuario proporcionó LinkedIn, intentar fetchearlo
-        try:
-            linkedin_response = await fetch_many([str(req.company_linkedin)], respect_robots=False, timeout=5)
-            if linkedin_response and linkedin_response[0][1]:
-                from .parsers.linkedin import parse_linkedin_company
-                linkedin_data = parse_linkedin_company(linkedin_response[0][1])
-                if linkedin_data:
-                    employee_count = linkedin_data.get("employee_count")
-                    linkedin_info = linkedin_data
-        except:
-            pass
+    # 8) SEO metrics (mejoradas con tiempo de carga)
+    seo_metrics = {}
+    if home_html:
+        seo_metrics = extract_seo_metrics(home_html, base, request_time_ms=home_load_time)
 
-    # Growth signals processing
-    growth_score_data = calculate_growth_score(all_growth_signals, {}, employee_count)
-    
-    # Company maturity
-    company_maturity = analyze_company_maturity_simple(employee_count, " ".join([b.bullet for b in context_block.bullets]))
-    
-    # GTM Score calculation
-    gtm_score = 0.0
-    if employee_count and 10 <= employee_count <= 500:
-        gtm_score += 0.3
-    if growth_score_data.get("growth_score", 0) > 0.3:
-        gtm_score += 0.4
-    if len(competitors_found) > 0:
-        gtm_score += 0.1
-    if principal and "tecnología" in principal.lower():
-        gtm_score += 0.2
-    gtm_score = round(min(1.0, gtm_score), 2)
+    # 9) Integrar emails en social
+    if emails:
+        # Deduplicate emails
+        unique_emails = list(set(emails))
+        social["emails"] = unique_emails[:5]  # Limit to 5 emails
 
-    # 8) Respuesta final 
-    return ScanResponse(
-        domain=domain_of(base),
-        pages_crawled=pages,
-        context=context_block,
-        tech_stack=tech,
-        emails=list(set(emails)),  # Deduplicate emails
-        contact_pages=contact_pages,
-        news=[NewsItem(title=item["title"], body=item["body"], url=item["url"]) for item in news_items],
-        industry=principal,
-        industry_secondary=secundaria,
-        industry_evidence=evidencias,
-        # NEW GTM Intelligence
-        linkedin_info=linkedin_info,
-        growth_signals=all_growth_signals if all_growth_signals else None,
-        company_maturity=company_maturity,
-        seo_metrics=all_seo_metrics if all_seo_metrics else None,
-        competitors=list(competitors_found),
-        gtm_score=gtm_score
-    )
+    # 10) Limitar noticias a las 3 más recientes
+    recent_news = news_items[:3] if news_items else []
+
+    # 11) Respuesta final reorganizada
+    response_data = {
+        "domain": domain_of(base),
+        "company_name": company_name,
+        "context": context_block,
+        "social": social,
+        "industry": principal,
+        "industry_secondary": secundaria,
+        "tech_stack": tech_stack,
+        "competitors": list(competitors_found),
+        "seo_metrics": seo_metrics if seo_metrics else None,
+        "pages_crawled": pages,
+        "recent_news": [NewsItem(title=item["title"], body=item["body"], url=item["url"]) for item in recent_news],
+        "contact_pages": contact_pages,
+    }
+
+    # Only include fields that have meaningful data
+    filtered_response = {}
+    for key, value in response_data.items():
+        if value is not None and value != [] and value != {}:
+            filtered_response[key] = value
+        elif key in ["domain", "company_name", "context"]:  # Always include these core fields
+            filtered_response[key] = value
+
+    return ScanResponse(**filtered_response)
 
 
