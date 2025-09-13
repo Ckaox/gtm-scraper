@@ -19,6 +19,7 @@ from .parsers.techstack import detect_tech
 from .parsers.news import extract_news_from_html
 from .parsers.emails import extract_emails
 from .parsers.industry import detect_industry
+from .parsers.industry import detectar_industrias, detectar_principal_y_secundaria
 
 
 # ===========================
@@ -258,6 +259,9 @@ async def scan(req: ScanRequest):
         pages_crawled=pages,
         context=context_block,
         tech_stack=tech,
-        news=news_items[:5],  # últimas 5 noticias internas si existen
+        industry=principal,
+        industry_secondary=secundaria,
+        industry_evidence=evidencias
     )
+        
 

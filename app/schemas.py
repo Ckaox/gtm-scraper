@@ -120,6 +120,8 @@ class ScanResponse(BaseModel):
     jobs: Optional[JobsBlock] = None
     job_sources: List[JobSource] = []
     news: List[NewsItem] = []                 
-    emails: List[str] = []                   
-    industry: Optional[str] = None             
-    contact_pages: List[str] = []             
+    emails: List[str] = []      
+    contact_pages: List[str] = []                       
+    industry: Optional[str] = None                
+    industry_secondary: Optional[str] = None
+    industry_evidence: List[Dict[str, object]] = []  # opcional: guarda el resultado de detectar_industrias(...)
