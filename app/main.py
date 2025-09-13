@@ -1,9 +1,10 @@
 # app/app/main.py
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from typing import List, Dict, Any
 from bs4 import BeautifulSoup
 import httpx
 import time
+import logging
 
 from .schemas import *
 from .util import (
@@ -22,6 +23,9 @@ from .parsers.emails import extract_emails
 from .parsers.industry import detectar_principal_y_secundaria
 from .parsers.company_name import extract_company_name_from_html
 from .parsers.seo_metrics import extract_seo_metrics
+
+# Logger setup
+logger = logging.getLogger(__name__)
 
 
 # ===========================
@@ -105,166 +109,262 @@ def health():
     return {"ok": True}
 
 
-@app.post("/scan", response_model=ScanResponse)
+@app.post("/scan", response_model=ScanResponse, summary="Escanear información de empresa")
 async def scan(req: ScanRequest):
-    # 🎯 SMART DOMAIN RESOLUTION - Resuelve automáticamente www/non-www
-    print(f"🔍 Resolviendo dominio inteligentemente: {req.domain}")
-    base = smart_domain_resolver(req.domain, timeout=req.timeout_sec)
-    print(f"✅ Dominio resuelto a: {base}")
-
-    # 1) Intentar scrapear la home
-    from .fetch import extract_internal_links  # import local para evitar ciclos
-    start_time = time.time()
-    home_html = (await fetch_many([base], respect_robots=req.respect_robots, timeout=req.timeout_sec))[0][1]
-    home_load_time = int((time.time() - start_time) * 1000)
-
-    candidates: List[str] = []
-    if home_html:
-        # 1) links internos (reducido por perf)
-        links = extract_internal_links(base, home_html, max_links=MAX_INTERNAL_LINKS)
-        # 2) puntuar por keywords (EN/ES)
-        scored = []
-        for u in links:
-            if looks_blocklisted(u):
-                continue
-            scored.append((keyword_score(httpx.URL(u).path), u))
-        scored.sort(reverse=True, key=lambda x: x[0])
-        # 3) home + top relevantes (recortado por perf)
-        top = [u for _, u in scored[:TOP_CANDIDATES_BY_KEYWORD]]
-        candidates = [base] + top
-    else:
-        # Fallback: paths EN/ES por defecto
-        candidates = discover_candidate_urls(base)
-
-    # Merge con opcionales
-    candidates += [str(u) for u in req.extra_urls] + [str(u) for u in req.careers_overrides]
-
-    # Dedupe y presupuesto (ajustado para Render free plan)
-    seen = set(); clean = []
-    for u in candidates:
-        if u not in seen and not looks_blocklisted(u):
-            seen.add(u); clean.append(u)
+    """
+    ESCÁNER ULTRA-OPTIMIZADO:
+    - Timeouts escalonados inteligentes
+    - Cache de domain resolution
+    - Manejo robusto de errores con diagnósticos
+    - Optimizado para Render y Clay
+    """
+    # 📊 PROFILER - Inicio del escaneo
+    total_start = time.time()
+    timings = {}
+    error_details = []
     
-    # Límite más agresivo para plan free
-    max_pages = min(req.max_pages, MAX_PAGES_FREE_PLAN)
-    candidates = clean[:max_pages]
-
-    # 2) Fetch inicial
-    fetched = await fetch_many(candidates, respect_robots=req.respect_robots, timeout=req.timeout_sec)
-
-    pages: List[str] = []
-    social = {}
-    tech = []
-    news_items: List[NewsItem] = []
-    emails: List[str] = []
-
-    normalized_name = normalize_company_name(req.company_name) if req.company_name else None
-
-    # 3) Procesar páginas - optimized for speed
-    for final_url, html in fetched:
-        if not html:
-            continue
-
-        pages.append(final_url)
-
-        # Social networks extraction (simplified)
-        if len(social) < 3:  # Limit social processing
-            s = _socials_from_html(html)
-            for k, v in s.items():
-                if k not in social:  # Avoid duplicates
-                    social[k] = v
-
-        # Tech detection (optimized)
-        tech.extend(detect_tech(final_url, html))
-
-        # Emails (optimized - only from first 2 pages)
-        if len(pages) <= 2:
-            page_emails = extract_emails(html)
-            emails.extend(page_emails[:3])  # Max 3 emails per page
-
-        # News detection - very limited for performance
-        if len(news_items) == 0:  # Only process news from first page that has it
-            path_lower = httpx.URL(final_url).path.lower()
-            if any(k in path_lower for k in ("blog", "news")):
-                page_news = extract_news_from_html(final_url, html, max_items=1)
-                news_items.extend(page_news)
-
-    # 4) Company name extraction con múltiples métodos
-    company_name = extract_company_name_from_html(
-        home_html if home_html else "", 
-        req.domain, 
-        fallback_name=normalized_name
-    )
-
-        # 5) Tech stack restructured as dict by category (new format)
-    tech_by_category = {}
-    for tech_item in tech:
-        # tech_item is now a dict from detect_tech
-        category = tech_item.get("category", "other")
-        if category not in tech_by_category:
-            tech_by_category[category] = {"tools": set(), "evidence": []}
+    try:
+        # 🎯 ETAPA 1: SMART DOMAIN RESOLUTION CON CACHE
+        step_start = time.time()
+        print(f"🔍 Resolviendo dominio {req.domain}")
         
-        # tech_item["tools"] is already a list
-        tech_by_category[category]["tools"].update(tech_item.get("tools", []))
+        try:
+            base = smart_domain_resolver(req.domain, timeout=3)  # Timeout más agresivo
+            timings["domain_resolution"] = time.time() - step_start
+            print(f"✅ Dominio resuelto a {base} en {timings['domain_resolution']:.2f}s")
+        except Exception as e:
+            error_details.append(f"Domain resolution failed: {str(e)}")
+            raise HTTPException(status_code=400, detail={
+                "error": "Domain resolution failed",
+                "domain": req.domain,
+                "details": f"Could not resolve domain variations for {req.domain}. Check if domain is valid.",
+                "suggestions": ["Verify domain spelling", "Try with/without www", "Check if domain exists"]
+            })
+
+        # 🌐 ETAPA 2: FETCH HTML CON TIMEOUTS ULTRA-OPTIMIZADOS
+        step_start = time.time()
+        from .fetch import extract_internal_links
         
-        evidence = tech_item.get("evidence", "")
-        if evidence:
-            tech_by_category[category]["evidence"].append(evidence)
+        home_html = None
+        fetch_attempts = [
+            {"timeout": 2, "name": "ultra-fast"},
+            {"timeout": 5, "name": "fast"}, 
+            {"timeout": 8, "name": "normal"}
+        ]
+        
+        for i, attempt in enumerate(fetch_attempts):
+            try:
+                print(f"⚡ Intento {i+1}: {attempt['name']} ({attempt['timeout']}s)")
+                result = await fetch_many([base], respect_robots=False, timeout=attempt['timeout'])
+                home_html = result[0][1] if result and result[0] else None
+                
+                if home_html:
+                    print(f"✅ HTML obtenido en intento {i+1}")
+                    break
+                else:
+                    error_details.append(f"Attempt {i+1} ({attempt['name']}): No HTML returned")
+                    
+            except Exception as e:
+                error_details.append(f"Attempt {i+1} ({attempt['name']}): {str(e)}")
+                continue
+        
+        timings["html_fetch"] = time.time() - step_start
 
-    # Create tech_stack as dict
-    tech_stack = {}
-    for cat, data in tech_by_category.items():
-        tech_stack[cat] = TechFingerprint(
-            tools=list(data["tools"]),
-            evidence=" | ".join(data["evidence"][:2])  # Limit evidence
-        )
+        if not home_html:
+            raise HTTPException(status_code=404, detail={
+                "error": "Website not accessible",
+                "domain": req.domain,
+                "resolved_url": base,
+                "details": f"Website did not respond after 3 attempts (2s, 5s, 8s timeouts)",
+                "attempts": error_details[-3:] if len(error_details) >= 3 else error_details,
+                "suggestions": [
+                    "Website might be down or very slow",
+                    "Try again in a few minutes", 
+                    "Check if website loads in browser",
+                    "Website might block automated requests"
+                ]
+            })
+        
+        print(f"✅ HTML obtenido en {timings['html_fetch']:.2f}s, tamaño: {len(home_html)}")
 
-    # 6) Context block simplified - no bullets for performance
-    context_block = ContextBlock()
+        # 🏢 ETAPA 3: COMPANY NAME EXTRACTION OPTIMIZADA
+        step_start = time.time()
+        try:
+            normalized_name = normalize_company_name(req.company_name) if req.company_name else None
+            company_name = extract_company_name_from_html(home_html, req.domain, fallback_name=normalized_name)
+            timings["company_name"] = time.time() - step_start
+            print(f"🏢 Company: '{company_name}' en {timings['company_name']:.3f}s")
+        except Exception as e:
+            company_name = req.domain.split('.')[0].title()  # Fallback
+            error_details.append(f"Company name extraction failed: {str(e)}")
+            timings["company_name"] = time.time() - step_start
 
-    # 7) Detectar industria from pages content (optimized)
-    # Use only first page and company name for faster processing
-    texto_completo = pages[0] if pages else ""
-    if company_name:
-        texto_completo += " " + company_name
-    principal, secundaria = detectar_principal_y_secundaria(texto_completo)
+        # 🏭 ETAPA 4: INDUSTRY DETECTION ULTRA-OPTIMIZADA
+        step_start = time.time()
+        try:
+            # Solo usar contenido más relevante (título + meta + primeros 3000 chars)
+            texto_optimizado = home_html[:3000].lower()
+            if company_name:
+                texto_optimizado += " " + company_name.lower()
+            
+            principal, secundaria = detectar_principal_y_secundaria(texto_optimizado)
+            timings["industry_detection"] = time.time() - step_start
+            print(f"🏭 Industry: '{principal}' en {timings['industry_detection']:.3f}s")
+        except Exception as e:
+            principal = "No determinada"
+            secundaria = None
+            error_details.append(f"Industry detection failed: {str(e)}")
+            timings["industry_detection"] = time.time() - step_start
 
-    # 8) SEO metrics (mejoradas con tiempo de carga)
-    seo_metrics = {}
-    if home_html:
-        seo_metrics = extract_seo_metrics(home_html, base, request_time_ms=home_load_time)
+        # 💻 ETAPA 5: TECH STACK DETECTION OPTIMIZADA
+        step_start = time.time()
+        tech_stack = {}
+        try:
+            tech = detect_tech(base, home_html)
+            tech_by_category = {}
+            
+            for tech_item in tech:
+                category = tech_item.get("category", "other")
+                if category not in tech_by_category:
+                    tech_by_category[category] = {"tools": set(), "evidence": []}
+                
+                tech_by_category[category]["tools"].update(tech_item.get("tools", []))
+                evidence = tech_item.get("evidence", "")
+                if evidence:
+                    tech_by_category[category]["evidence"].append(evidence)
 
-    # 9) Integrar emails en social
-    if emails:
-        # Deduplicate emails
-        unique_emails = list(set(emails))
-        social["emails"] = unique_emails[:5]  # Limit to 5 emails
+            for cat, data in tech_by_category.items():
+                if data["tools"]:  # Solo incluir categorías con tools
+                    tech_stack[cat] = TechFingerprint(
+                        tools=list(data["tools"]),
+                        evidence=" | ".join(data["evidence"][:2])  # Max 2 evidencias
+                    )
+            
+            timings["tech_stack"] = time.time() - step_start
+            print(f"💻 Tech: {len(tech_stack)} categorías en {timings['tech_stack']:.3f}s")
+            
+        except Exception as e:
+            error_details.append(f"Tech stack detection failed: {str(e)}")
+            timings["tech_stack"] = time.time() - step_start
 
-    # 10) Limitar noticias a las 3 más recientes
-    recent_news = news_items[:3] if news_items else []
+        # 🔗 ETAPA 6: PÁGINAS ADICIONALES (SOLO SI ES NECESARIO)
+        step_start = time.time()
+        additional_pages = []
+        social = {}
+        emails = []
+        news_items = []
+        
+        # Solo buscar páginas adicionales si el request lo permite y tenemos tiempo
+        if req.max_pages > 1 and timings.get("html_fetch", 0) < 5:  # Solo si el fetch fue rápido
+            try:
+                # Discovery limitado
+                links = extract_internal_links(base, home_html, max_links=30)  # Reducido de 60
+                scored = [(keyword_score(httpx.URL(u).path), u) for u in links if not looks_blocklisted(u)]
+                scored.sort(reverse=True, key=lambda x: x[0])
+                
+                candidates = [base] + [u for _, u in scored[:5]]  # Solo top 5
+                max_pages = min(req.max_pages, 3)  # Máximo 3 páginas total
+                candidates = candidates[:max_pages]
+                
+                # Fetch adicional con timeout corto
+                fetched = await fetch_many(candidates, respect_robots=req.respect_robots, timeout=5)
+                
+                for final_url, html in fetched:
+                    if html and final_url != base:
+                        additional_pages.append(final_url)
+                        
+                        # Extracciones limitadas
+                        if len(social) < 2:
+                            s = _socials_from_html(html)
+                            social.update({k: v for k, v in s.items() if k not in social})
+                        
+                        if len(emails) < 3:
+                            page_emails = extract_emails(html)
+                            emails.extend(page_emails[:2])
+                            
+            except Exception as e:
+                error_details.append(f"Additional pages processing failed: {str(e)}")
+        
+        timings["additional_processing"] = time.time() - step_start
 
-    # 11) Respuesta final reorganizada (nueva estructura sin competitors ni contact_pages)
-    response_data = {
-        "domain": domain_of(base),
-        "company_name": company_name,
-        "context": context_block,
-        "social": social,
-        "industry": principal,
-        "industry_secondary": secundaria,
-        "tech_stack": tech_stack,
-        "seo_metrics": seo_metrics if seo_metrics else None,
-        "pages_crawled": pages,
-        "recent_news": [NewsItem(title=item["title"], body=item["body"], url=item["url"]) for item in recent_news],
-    }
+        # 📊 ETAPA 7: SEO METRICS BÁSICOS
+        step_start = time.time()
+        seo_metrics = None
+        try:
+            home_load_time = int(timings.get("html_fetch", 0) * 1000)
+            seo_metrics = extract_seo_metrics(home_html, base, request_time_ms=home_load_time)
+        except Exception as e:
+            error_details.append(f"SEO metrics extraction failed: {str(e)}")
+        timings["seo_metrics"] = time.time() - step_start
 
-    # Only include fields that have meaningful data
-    filtered_response = {}
-    for key, value in response_data.items():
-        if value is not None and value != [] and value != {}:
-            filtered_response[key] = value
-        elif key in ["domain", "company_name", "context"]:  # Always include these core fields
-            filtered_response[key] = value
+        # 📧 SOCIAL Y EMAILS DEL HOME
+        try:
+            home_social = _socials_from_html(home_html)
+            social.update(home_social)
+            
+            if emails:
+                unique_emails = list(set(emails))
+                social["emails"] = unique_emails[:3]
+        except Exception as e:
+            error_details.append(f"Social/email extraction failed: {str(e)}")
 
-    return ScanResponse(**filtered_response)
+        # 📊 TIMING FINAL
+        timings["total_time"] = time.time() - total_start
+        
+        # Log del profiler
+        print(f"\n📊 SCAN PROFILER para {req.domain}:")
+        for key, value in timings.items():
+            if key != 'total_time':
+                percentage = (value/timings['total_time']*100) if timings['total_time'] > 0 else 0
+                print(f"   {key}: {value:.3f}s ({percentage:.1f}%)")
+        print(f"   🎯 TOTAL: {timings['total_time']:.3f}s")
+        
+        if error_details:
+            print(f"   ⚠️ Warnings: {len(error_details)} issues encountered")
+
+        # 🎯 RESPUESTA OPTIMIZADA
+        all_pages = [base] + additional_pages
+        
+        response_data = {
+            "domain": domain_of(base),
+            "company_name": company_name,
+            "context": ContextBlock(),
+            "industry": principal,
+            "tech_stack": tech_stack,
+            "pages_crawled": all_pages
+        }
+        
+        # Solo agregar campos con datos útiles
+        if secundaria:
+            response_data["industry_secondary"] = secundaria
+        if social:
+            response_data["social"] = social
+        if seo_metrics:
+            response_data["seo_metrics"] = seo_metrics
+        if news_items:
+            response_data["recent_news"] = [NewsItem(title=item["title"], body=item["body"], url=item["url"]) for item in news_items[:2]]
+
+        return ScanResponse(**response_data)
+
+    except HTTPException:
+        raise  # Re-lanzar errores HTTP con detalles
+    except Exception as e:
+        # Error inesperado - proporcionar diagnóstico completo
+        total_time = time.time() - total_start
+        print(f"❌ Error crítico después de {total_time:.2f}s: {str(e)}")
+        
+        raise HTTPException(status_code=500, detail={
+            "error": "Unexpected scan failure",
+            "domain": req.domain,
+            "details": str(e),
+            "scan_duration": f"{total_time:.2f}s",
+            "completed_stages": list(timings.keys()),
+            "error_log": error_details,
+            "suggestions": [
+                "Try scanning again in a few minutes",
+                "Check if the domain is accessible",
+                "Contact support if the issue persists"
+            ]
+        })
 
 

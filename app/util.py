@@ -61,18 +61,26 @@ def base_from_domain(domain: str) -> str:
     return f"https://{clean_domain}"
 
 
-def smart_domain_resolver(domain: str, timeout: int = 10) -> str:
+# Cache para domain resolution (en memoria)
+_domain_cache = {}
+
+def smart_domain_resolver(domain: str, timeout: int = 5) -> str:
     """
     Resuelve automáticamente la mejor URL para un dominio probando variaciones.
-    Esto soluciona el problema de dominios que requieren 'www.' para funcionar.
+    OPTIMIZADO con CACHE para reducir tiempo de resolución repetida.
     
     Args:
         domain: Dominio a resolver (ej: "kaioland.com")
-        timeout: Timeout para cada prueba
+        timeout: Timeout para cada prueba (reducido a 5s)
         
     Returns:
         La mejor URL que funciona, o la URL original si ninguna funciona
     """
+    # 🚀 CACHE CHECK - Si ya resolvimos este dominio antes
+    if domain in _domain_cache:
+        print(f"🚀 Cache hit para {domain}: {_domain_cache[domain]}")
+        return _domain_cache[domain]
+    
     # Limpiar el dominio
     if domain.startswith("http://") or domain.startswith("https://"):
         parsed = urlparse(domain)
@@ -80,36 +88,35 @@ def smart_domain_resolver(domain: str, timeout: int = 10) -> str:
     else:
         clean_domain = domain.strip().replace("http://", "").replace("https://", "").rstrip("/")
     
-    # Variaciones a probar en orden de preferencia
-    variations = [
-        f"https://{clean_domain}",
-        f"https://www.{clean_domain}",
-        f"http://{clean_domain}",
-        f"http://www.{clean_domain}"
-    ]
-    
-    # Si ya tiene www, prueba sin www también
+    # OPTIMIZACIÓN: Solo 2 variaciones principales para velocidad
     if clean_domain.startswith("www."):
-        domain_without_www = clean_domain[4:]
+        # Si ya tiene www, solo prueba con www
+        variations = [f"https://{clean_domain}"]
+    else:
+        # Si no tiene www, prueba sin www primero, luego con www
         variations = [
             f"https://{clean_domain}",
-            f"https://{domain_without_www}",
-            f"http://{clean_domain}",
-            f"http://{domain_without_www}"
+            f"https://www.{clean_domain}"
         ]
     
-    # Probar cada variación
+    # Probar cada variación con timeout ultra-agresivo
     for url in variations:
         try:
-            response = httpx.head(url, timeout=timeout, follow_redirects=True)
+            # OPTIMIZACIÓN: timeout muy corto y solo HEAD request
+            response = httpx.head(url, timeout=timeout//3, follow_redirects=True)  # timeout/3 para ser más agresivos
             if response.status_code in [200, 301, 302, 403]:  # 403 puede ser Cloudflare pero el sitio existe
                 # Usar la URL final después de redirects
-                return str(response.url) if hasattr(response, 'url') else url
+                final_url = str(response.url).rstrip('/') if hasattr(response, 'url') else url.rstrip('/')
+                # 🚀 GUARDAR EN CACHE
+                _domain_cache[domain] = final_url
+                return final_url
         except Exception:
-            continue  # Probar siguiente variación
+            continue  # Probar siguiente variación rápidamente
     
-    # Si nada funciona, devolver la primera variación (https sin www)
-    return f"https://{clean_domain}"
+    # Si nada funciona, devolver la primera variación y cachear
+    fallback_url = f"https://{clean_domain}"
+    _domain_cache[domain] = fallback_url
+    return fallback_url
 
 def discover_candidate_urls(base_url: str, include_paths=None):
     paths = include_paths or DEFAULT_PATHS
