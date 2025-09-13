@@ -253,7 +253,7 @@ async def scan(req: ScanRequest):
         company_name=normalized_name
     )
 
-    # 6) Respuesta final (sin jobs por ahora, con news)
+    # 6) Respuesta final 
     return ScanResponse(
         domain=domain_of(base),
         pages_crawled=pages,
