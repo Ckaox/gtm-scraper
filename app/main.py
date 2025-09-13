@@ -17,6 +17,8 @@ from .fetch import fetch_many, discover_feeds_from_html
 from .parsers.context import extract_bullets
 from .parsers.techstack import detect_tech
 from .parsers.news import extract_news_from_html
+from .parsers.emails import extract_emails
+from .parsers.industry import detect_industry
 
 
 # ===========================

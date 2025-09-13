@@ -117,8 +117,9 @@ class ScanResponse(BaseModel):
     pages_crawled: List[str]
     context: ContextBlock
     tech_stack: List[TechFingerprint]
-    # Jobs por ahora opcional (lo quitamos del pipeline de scraping)
     jobs: Optional[JobsBlock] = None
     job_sources: List[JobSource] = []
-    news: List[NewsItem] = []  
-
+    news: List[NewsItem] = []                 
+    emails: List[str] = []                   
+    industry: Optional[str] = None             
+    contact_pages: List[str] = []             
