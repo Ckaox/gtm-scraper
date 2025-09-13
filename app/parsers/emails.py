@@ -12,6 +12,11 @@ BLACKLIST_LOCAL = {"example", "test"}
 def extract_emails(html: str) -> List[str]:
     if not html:
         return []
+    
+    # Limitar HTML para performance
+    if len(html) > 300_000:  # 300KB max
+        html = html[:300_000]
+    
     out = set()
 
     for m in MAILTO_RE.findall(html):
@@ -30,4 +35,8 @@ def extract_emails(html: str) -> List[str]:
         if local.lower() in BLACKLIST_LOCAL:
             continue
         cleaned.append(e)
+        # Límite para evitar spam
+        if len(cleaned) >= 10:
+            break
+    
     return sorted(set(cleaned))

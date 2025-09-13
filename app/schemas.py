@@ -62,46 +62,33 @@ class TechFingerprint(BaseModel):
     evidence: Optional[str] = None
 
 
-# -------- Jobs
+# -------- GTM Intelligence (NEW)
 
-class JobPosting(BaseModel):
-    title: str
-    location: Optional[str] = None
-    employment_type: Optional[str] = None
-    department: Optional[str] = None
-    date_posted: Optional[str] = None
-    valid_through: Optional[str] = None
-    apply_url: Optional[str] = None
-    platform_hint: Optional[str] = None
-    source_url: AnyHttpUrl
+class LinkedInInfo(BaseModel):
+    employee_count: Optional[int] = None
+    description: Optional[str] = None
+    linkedin_industry: Optional[str] = None
+    company_size_segment: Optional[str] = None
 
+class GrowthSignals(BaseModel):
+    funding_signals: List[str] = []
+    growth_mentions: List[str] = []
+    partnership_signals: List[str] = []
+    product_launches: List[str] = []
+    growth_score: float = 0.0
+    score_factors: List[str] = []
+    priority_level: str = "Low"
 
-class JobsSignalsSummary(BaseModel):
-    hiring_focus: List[str]
-    seniority_mix: Dict[str, int]
-    functions_count: Dict[str, int]
+class CompanyMaturity(BaseModel):
+    level: str = "Unknown"  # Early Startup, Scale-up, Established, Public Company
+    indicators: List[str] = []
 
-
-class JobsUsefulness(BaseModel):
-    score: float
-    tags: List[str]
-    reasons: List[str]
-    freshness_days_p50: Optional[int] = None
-    velocity: Dict[str, Any] = {}
-
-
-class JobsBlock(BaseModel):
-    postings: List[JobPosting]
-    summary: JobsSignalsSummary
-    usefulness: JobsUsefulness
-
-
-# -------- Extras (fuentes de empleo)
-
-class JobSource(BaseModel):
-    name: str
-    url: str
-    fetchable: bool = True
+class SEOMetrics(BaseModel):
+    meta_title_length: Optional[int] = None
+    meta_description_length: Optional[int] = None
+    has_structured_data: bool = False
+    has_sitemap_link: bool = False
+    page_load_indicators: List[str] = []
 
 # -------- News (novedades internas del sitio)
 
@@ -117,11 +104,17 @@ class ScanResponse(BaseModel):
     pages_crawled: List[str]
     context: ContextBlock
     tech_stack: List[TechFingerprint]
-    jobs: Optional[JobsBlock] = None
-    job_sources: List[JobSource] = []
     news: List[NewsItem] = []                 
     emails: List[str] = []      
     contact_pages: List[str] = []                       
     industry: Optional[str] = None                
     industry_secondary: Optional[str] = None
     industry_evidence: List[Dict[str, object]] = []  # opcional: guarda el resultado de detectar_industrias(...)
+    
+    # NEW GTM Intelligence fields
+    linkedin_info: Optional[LinkedInInfo] = None
+    growth_signals: Optional[GrowthSignals] = None
+    company_maturity: Optional[CompanyMaturity] = None
+    seo_metrics: Optional[SEOMetrics] = None
+    competitors: List[str] = []  # Competitor domains/companies detected
+    gtm_score: float = 0.0  # Overall GTM targeting score

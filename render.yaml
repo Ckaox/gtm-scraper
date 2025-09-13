@@ -2,8 +2,17 @@ services:
   - type: web
     name: maxi-gtm-scan
     env: python
-    plan: free
+    plan: free  # Cambia a 'starter' si necesitas más recursos
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --loop asyncio
     autoDeploy: true
     healthCheckPath: /health
+    envVars:
+      - key: MAX_HTML_BYTES
+        value: "600000"  # 600KB para plan free
+      - key: MAX_CONNS
+        value: "15"      # Más conservador para plan free
+      - key: CONNECT_TIMEOUT
+        value: "2"
+      - key: READ_TIMEOUT
+        value: "4"

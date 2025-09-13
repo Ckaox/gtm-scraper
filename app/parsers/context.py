@@ -21,6 +21,11 @@ def extract_bullets(url: str, html: str, company_name: Optional[str]=None) -> Li
     out: List[ContextBullet] = []
     if not html or looks_blocklisted(url):
         return out
+    
+    # Limitar HTML para performance
+    if len(html) > 500_000:  # 500KB max
+        html = html[:500_000]
+    
     soup = BeautifulSoup(html, "lxml")
 
     t = soup.title.string.strip() if soup.title and soup.title.string else None
@@ -33,15 +38,19 @@ def extract_bullets(url: str, html: str, company_name: Optional[str]=None) -> Li
         if txt and not any(b in txt.lower() for b in BOILERPLATE):
             out.append(ContextBullet(source_url=url, bullet=txt, kind="generic"))
 
-    for tag in soup.find_all(HEADINGS):
+    # Reducir la búsqueda de headings para performance
+    for tag in soup.find_all(HEADINGS)[:15]:  # Máximo 15 headings
         text = " ".join(tag.get_text(" ").split())
         if 6 <= len(text) <= 180 and not any(b in text.lower() for b in BOILERPLATE):
             out.append(ContextBullet(source_url=url, bullet=text, kind=_guess_kind(url)))
 
-    for li in soup.select("section li, .features li, .benefits li, ul li"):
+    # Reducir la búsqueda de list items para performance
+    for li in soup.select("section li, .features li, .benefits li, ul li")[:20]:  # Máximo 20 items
         text = " ".join(li.get_text(" ").split())
         if 6 <= len(text) <= 160 and not any(b in text.lower() for b in BOILERPLATE):
             out.append(ContextBullet(source_url=url, bullet=text, kind=_guess_kind(url)))
+        if len(out) >= 20:  # Break early si ya tenemos suficientes
+            break
 
     # dedupe y prioriza si menciona company_name
     seen = set()
@@ -57,4 +66,4 @@ def extract_bullets(url: str, html: str, company_name: Optional[str]=None) -> Li
         cname = company_name.lower()
         uniq.sort(key=lambda x: (cname in x.bullet.lower(), x.kind=="value_prop"), reverse=True)
 
-    return uniq[:25]
+    return uniq[:15]  # Reducido de 25 a 15

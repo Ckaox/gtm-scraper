@@ -64,9 +64,15 @@ PATTERNS = {
 def detect_tech(url: str, html: str) -> List[TechFingerprint]:
     out: List[TechFingerprint] = []
     if not html: return out
-    hay = html if len(html) < 2_000_000 else html[:2_000_000]
+    
+    # Limitar HTML para performance (máximo 1MB)
+    hay = html if len(html) < 1_000_000 else html[:1_000_000]
+    
     for cat, pairs in PATTERNS.items():
         for tool, pattern in pairs:
             if re.search(pattern, hay, re.I):
                 out.append(TechFingerprint(category=cat, tool=tool, evidence=pattern))
+                # Break early si encontramos muchas techs para evitar lentitud
+                if len(out) >= 15:  # Máximo 15 tech items
+                    return out
     return out

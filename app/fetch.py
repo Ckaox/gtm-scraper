@@ -17,20 +17,22 @@ DEFAULT_HEADERS = {
 
 # === Performance knobs ===
 HTTP2 = os.getenv("HTTP2", "1") == "1"
-MAX_HTML_BYTES = int(os.getenv("MAX_HTML_BYTES", "1200000"))  # ~1.2MB cap por página
-CONNECT_TIMEOUT = float(os.getenv("CONNECT_TIMEOUT", "3"))
-READ_TIMEOUT = float(os.getenv("READ_TIMEOUT", "6"))
-WRITE_TIMEOUT = float(os.getenv("WRITE_TIMEOUT", "6"))
-POOL_TIMEOUT = float(os.getenv("POOL_TIMEOUT", "3"))
-MAX_CONNS = int(os.getenv("MAX_CONNS", "30"))
-MAX_KEEPALIVE = int(os.getenv("MAX_KEEPALIVE", "20"))
+MAX_HTML_BYTES = int(os.getenv("MAX_HTML_BYTES", "800000"))  # Reducido de 1.2MB a 800KB
+CONNECT_TIMEOUT = float(os.getenv("CONNECT_TIMEOUT", "2"))   # Más agresivo: 3→2
+READ_TIMEOUT = float(os.getenv("READ_TIMEOUT", "5"))        # Más agresivo: 6→5
+WRITE_TIMEOUT = float(os.getenv("WRITE_TIMEOUT", "5"))      # Más agresivo: 6→5
+POOL_TIMEOUT = float(os.getenv("POOL_TIMEOUT", "2"))       # Más agresivo: 3→2
+MAX_CONNS = int(os.getenv("MAX_CONNS", "20"))              # Reducido para Render: 30→20
+MAX_KEEPALIVE = int(os.getenv("MAX_KEEPALIVE", "10"))      # Reducido: 20→10
 
 try:
     import h2  # noqa: F401
+    from cachetools import TTLCache
+    _robot_cache = TTLCache(maxsize=100, ttl=3600)  # Cache 1 hora
+    HTTP2 = True
 except ImportError:
     HTTP2 = False
-
-_robot_cache: Dict[str, robotparser.RobotFileParser] = {}
+    _robot_cache = {}
 
 def _robots_for(url: str) -> robotparser.RobotFileParser:
     parsed = urlparse(url)

@@ -18,15 +18,19 @@ from .parsers.context import extract_bullets
 from .parsers.techstack import detect_tech
 from .parsers.news import extract_news_from_html
 from .parsers.emails import extract_emails
-from .parsers.industry import detect_industry
 from .parsers.industry import detectar_industrias, detectar_principal_y_secundaria
+from .parsers.linkedin import extract_linkedin_url_from_html, get_company_size_segment, analyze_company_maturity_simple
+from .parsers.growth_signals import detect_growth_signals, calculate_growth_score
+from .parsers.seo_metrics import extract_seo_metrics
+from .parsers.competitors import detect_competitors_from_content
 
 
 # ===========================
 # Config rápida (tuning perf)
 # ===========================
-MAX_INTERNAL_LINKS = 150          # antes 300
-TOP_CANDIDATES_BY_KEYWORD = 20    # cortar top-K por score
+MAX_INTERNAL_LINKS = 100          # Reducido para Render: 150→100
+TOP_CANDIDATES_BY_KEYWORD = 15    # Reducido: 20→15
+MAX_PAGES_FREE_PLAN = 6           # Límite para plan free de Render
 
 
 # ---------------------------
@@ -184,12 +188,15 @@ async def scan(req: ScanRequest):
     # Merge con opcionales
     candidates += [str(u) for u in req.extra_urls] + [str(u) for u in req.careers_overrides]
 
-    # Dedupe y presupuesto
+    # Dedupe y presupuesto (ajustado para Render free plan)
     seen = set(); clean = []
     for u in candidates:
         if u not in seen and not looks_blocklisted(u):
             seen.add(u); clean.append(u)
-    candidates = clean[:req.max_pages]
+    
+    # Límite más agresivo para plan free
+    max_pages = min(req.max_pages, MAX_PAGES_FREE_PLAN)
+    candidates = clean[:max_pages]
 
     # 2) Fetch inicial
     fetched = await fetch_many(candidates, respect_robots=req.respect_robots, timeout=req.timeout_sec)
@@ -198,6 +205,15 @@ async def scan(req: ScanRequest):
     bullets: List[ContextBullet] = []
     feeds, social, tech = set(), {}, []
     news_items: List[NewsItem] = []
+    emails: List[str] = []
+    contact_pages: List[str] = []
+    
+    # GTM Intelligence variables
+    linkedin_url = None
+    all_growth_signals = {}
+    all_seo_metrics = {}
+    competitors_found = set()
+    employee_count = None
 
     normalized_name = normalize_company_name(req.company_name)
 
@@ -223,6 +239,37 @@ async def scan(req: ScanRequest):
 
         # Tech
         tech.extend(detect_tech(final_url, html))
+
+        # Emails
+        page_emails = extract_emails(html)
+        emails.extend(page_emails)
+
+        # Contact pages detection
+        if any(contact_word in final_url.lower() for contact_word in ["contact", "contacto", "about", "empresa"]):
+            contact_pages.append(final_url)
+
+        # LinkedIn URL detection
+        if not linkedin_url:
+            linkedin_url = extract_linkedin_url_from_html(html, final_url)
+
+        # Growth signals detection
+        growth_signals = detect_growth_signals(html, final_url)
+        for key, value in growth_signals.items():
+            if key not in all_growth_signals:
+                all_growth_signals[key] = []
+            if isinstance(value, list):
+                all_growth_signals[key].extend(value)
+            else:
+                all_growth_signals[key].append(value)
+
+        # SEO metrics (solo para la home page para ser eficiente)
+        if final_url == base or "/es" in final_url or final_url.endswith("/"):
+            seo_metrics = extract_seo_metrics(html, final_url)
+            all_seo_metrics.update(seo_metrics)
+
+        # Competitor detection
+        detected_competitors = detect_competitors_from_content(html, principal if 'principal' in locals() else None)
+        competitors_found.update(detected_competitors)
 
         # Noticias internas: si la URL parece blog/news/press, o si hay <article>
         path_lower = httpx.URL(final_url).path.lower()
@@ -253,15 +300,65 @@ async def scan(req: ScanRequest):
         company_name=normalized_name
     )
 
-    # 6) Respuesta final 
+    # 6) Detectar industria del texto consolidado
+    texto_completo = " ".join([b.bullet for b in context_block.bullets]) + " " + " ".join(pages)
+    evidencias = detectar_industrias(texto_completo, top_k=3, min_score=1)
+    principal, secundaria = detectar_principal_y_secundaria(texto_completo)
+
+    # 7) Procesar GTM Intelligence
+    
+    # LinkedIn info
+    linkedin_info = None
+    if req.company_linkedin:
+        # Si el usuario proporcionó LinkedIn, intentar fetchearlo
+        try:
+            linkedin_response = await fetch_many([str(req.company_linkedin)], respect_robots=False, timeout=5)
+            if linkedin_response and linkedin_response[0][1]:
+                from .parsers.linkedin import parse_linkedin_company
+                linkedin_data = parse_linkedin_company(linkedin_response[0][1])
+                if linkedin_data:
+                    employee_count = linkedin_data.get("employee_count")
+                    linkedin_info = linkedin_data
+        except:
+            pass
+
+    # Growth signals processing
+    growth_score_data = calculate_growth_score(all_growth_signals, {}, employee_count)
+    
+    # Company maturity
+    company_maturity = analyze_company_maturity_simple(employee_count, " ".join([b.bullet for b in context_block.bullets]))
+    
+    # GTM Score calculation
+    gtm_score = 0.0
+    if employee_count and 10 <= employee_count <= 500:
+        gtm_score += 0.3
+    if growth_score_data.get("growth_score", 0) > 0.3:
+        gtm_score += 0.4
+    if len(competitors_found) > 0:
+        gtm_score += 0.1
+    if principal and "tecnología" in principal.lower():
+        gtm_score += 0.2
+    gtm_score = round(min(1.0, gtm_score), 2)
+
+    # 8) Respuesta final 
     return ScanResponse(
         domain=domain_of(base),
         pages_crawled=pages,
         context=context_block,
         tech_stack=tech,
+        emails=list(set(emails)),  # Deduplicate emails
+        contact_pages=contact_pages,
+        news=[NewsItem(title=item["title"], body=item["body"], url=item["url"]) for item in news_items],
         industry=principal,
         industry_secondary=secundaria,
-        industry_evidence=evidencias
+        industry_evidence=evidencias,
+        # NEW GTM Intelligence
+        linkedin_info=linkedin_info,
+        growth_signals=all_growth_signals if all_growth_signals else None,
+        company_maturity=company_maturity,
+        seo_metrics=all_seo_metrics if all_seo_metrics else None,
+        competitors=list(competitors_found),
+        gtm_score=gtm_score
     )
-        
+
 
