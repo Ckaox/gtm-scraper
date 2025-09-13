@@ -311,6 +311,16 @@ INDUSTRIAS: Dict[str, List[str]] = {
         "entertainment", "events", "ticketing", "concert", "festival", "theater", "cinema", "show", "music",
         "artist", "event production", "event management", "party planning", "wedding planning", "live entertainment"
     ],
+    "Deportes": [
+        "futbol", "fútbol", "football", "soccer", "baloncesto", "basketball", "tenis", "tennis", "deporte", "deportes",
+        "sport", "sports", "equipo", "team", "club deportivo", "athletic club", "cantera", "academia deportiva",
+        "entrenamiento", "training", "estadio", "stadium", "campo deportivo", "sporting", "atletismo", "athletics",
+        "natacion", "natación", "swimming", "gimnasia", "gymnastics", "voleibol", "volleyball", "handball", "balonmano",
+        "rugby", "hockey", "golf", "paddle", "padel", "ciclismo", "cycling", "running", "maratón", "marathon",
+        "primer equipo", "segunda division", "liga", "league", "championship", "campeonato", "torneos", "tournaments",
+        "jugador", "jugadores", "players", "entrenador", "coach", "tecnico", "técnico", "athletic", "deportivo",
+        "sports club", "football club", "basketball team", "tennis club", "golf club", "sporting club", "athletic team"
+    ],
     "Juegos y eSports": [
         "videojuegos", "gaming", "esports", "e-sports", "juego movil", "juego móvil", "game studio", "estudio de juegos",
         "desarrollador de juegos", "publisher", "consola", "consolas", "playstation", "xbox", "nintendo", "pc gaming",

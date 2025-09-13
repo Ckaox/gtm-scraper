@@ -1,13 +1,13 @@
+#!/usr/bin/env python3
+"""
+Context Summary Parser - Clean implementation
+Extrae un resumen inteligente del contenido de la página para outbound sales
+"""
+
 from bs4 import BeautifulSoup
-from typing import List, Optional
 import re
-from ..util import looks_blocklisted
+from typing import Optional
 
-HEADINGS = ("h1","h2","h3")
-
-BOILERPLATE = (
-    "cookies", "privacy", "terms", "subscribe", "newsletter", "404", "copyright"
-)
 
 def extract_context_summary(html: str, company_name: str = "", max_length: int = 200) -> Optional[str]:
     """
@@ -25,14 +25,18 @@ def extract_context_summary(html: str, company_name: str = "", max_length: int =
         if meta_desc:
             desc = meta_desc.get('content', '').strip()
             if desc and len(desc) > 20:  # Descartar descripciones muy cortas
-                return _clean_and_truncate(desc, max_length)
+                cleaned = _clean_and_truncate(desc, max_length)
+                if cleaned:  # Solo devolver si la limpieza fue exitosa
+                    return cleaned
         
         # PRIORIDAD 2: Open Graph description
         og_desc = soup.find('meta', attrs={'property': 'og:description'})
         if og_desc:
             desc = og_desc.get('content', '').strip()
             if desc and len(desc) > 20:
-                return _clean_and_truncate(desc, max_length)
+                cleaned = _clean_and_truncate(desc, max_length)
+                if cleaned:
+                    return cleaned
         
         # PRIORIDAD 3: About sections (muy específico para empresas)
         about_selectors = [
@@ -113,7 +117,14 @@ def _clean_and_truncate(text: str, max_length: int) -> str:
     """
     # Limpiar caracteres extraños y espacios múltiples
     text = re.sub(r'\s+', ' ', text.strip())
+    
+    # Filtrar caracteres no ASCII y caracteres raros (más estricto)
+    text = re.sub(r'[^\x00-\x7F]', '', text)  # Solo ASCII
     text = re.sub(r'[^\w\s.,;:!?()áéíóúñü-]', '', text, flags=re.IGNORECASE)
+    
+    # Si el texto resultante es muy corto o vacío, devolver None
+    if len(text.strip()) < 20:
+        return None
     
     if len(text) <= max_length:
         return text
@@ -184,63 +195,3 @@ def _is_cookie_text(text: str) -> bool:
     cookie_keywords = ['cookie', 'privacy policy', 'terms of service', 'gdpr', 'consent']
     text_lower = text.lower()
     return any(keyword in text_lower for keyword in cookie_keywords)
-
-def _guess_kind(url: str) -> str:
-    u = url.lower()
-    if "/about" in u or "/company" in u: return "about"
-    if "/product" in u or "/platform" in u or "/solutions" in u: return "product"
-    if "/blog" in u: return "blog"
-    if "/news" in u or "/press" in u: return "news"
-    return "value_prop"
-
-# Commented out extract_bullets function for now since we don't have ContextBullet schema
-# def extract_bullets(url: str, html: str, company_name: Optional[str]=None) -> List[ContextBullet]:
-    out: List[ContextBullet] = []
-    if not html or looks_blocklisted(url):
-        return out
-    
-    # Limitar HTML para performance
-    if len(html) > 500_000:  # 500KB max
-        html = html[:500_000]
-    
-    soup = BeautifulSoup(html, "lxml")
-
-    t = soup.title.string.strip() if soup.title and soup.title.string else None
-    if t and not any(bad in t.lower() for bad in BOILERPLATE):
-        out.append(ContextBullet(source_url=url, bullet=t, kind="generic"))
-
-    md = soup.find("meta", attrs={"name":"description"})
-    if md and md.get("content"):
-        txt = md["content"].strip()
-        if txt and not any(b in txt.lower() for b in BOILERPLATE):
-            out.append(ContextBullet(source_url=url, bullet=txt, kind="generic"))
-
-    # Reducir la búsqueda de headings para performance
-    for tag in soup.find_all(HEADINGS)[:15]:  # Máximo 15 headings
-        text = " ".join(tag.get_text(" ").split())
-        if 6 <= len(text) <= 180 and not any(b in text.lower() for b in BOILERPLATE):
-            out.append(ContextBullet(source_url=url, bullet=text, kind=_guess_kind(url)))
-
-    # Reducir la búsqueda de list items para performance
-    for li in soup.select("section li, .features li, .benefits li, ul li")[:20]:  # Máximo 20 items
-        text = " ".join(li.get_text(" ").split())
-        if 6 <= len(text) <= 160 and not any(b in text.lower() for b in BOILERPLATE):
-            out.append(ContextBullet(source_url=url, bullet=text, kind=_guess_kind(url)))
-        if len(out) >= 20:  # Break early si ya tenemos suficientes
-            break
-
-    # dedupe y prioriza si menciona company_name
-    seen = set()
-    uniq = []
-    for b in out:
-        key = (b.kind, b.bullet.lower())
-        if key in seen:
-            continue
-        seen.add(key)
-        uniq.append(b)
-
-    if company_name:
-        cname = company_name.lower()
-        uniq.sort(key=lambda x: (cname in x.bullet.lower(), x.kind=="value_prop"), reverse=True)
-
-    return uniq[:15]  # Reducido de 25 a 15
