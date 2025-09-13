@@ -33,29 +33,14 @@ class ScanRequest(BaseModel):
 
 # -------- Context
 
-class ContextBullet(BaseModel):
-    """
-    Nota: 'bullet' es el campo estándar.
-    Permitimos también inicializar con 'text=' gracias al alias para
-    ser compatibles con funciones que construyen bullets condensados.
-    """
-    source_url: Optional[AnyHttpUrl] = None
-    bullet: str = Field(alias="text")
-    kind: Optional[str] = "generic"  # value_prop | product | about | blog | news | generic
-
-    class Config:
-        populate_by_name = True  # permite pasar 'text=' al crear el modelo
-
-
 class ContextBlock(BaseModel):
-    bullets: List[ContextBullet]
-    # Removed feeds as it doesn't provide useful information
+    # Simplified context - no bullets for performance
+    summary: Optional[str] = None  # Simple text summary instead of bullets
 
 
 # -------- Tech stack
 
 class TechFingerprint(BaseModel):
-    category: str  # Will show technology category instead of numbers
     tools: List[str] = []  # List of tools in this category
     evidence: Optional[str] = None
 
@@ -104,18 +89,16 @@ class NewsItem(BaseModel):
 # -------- Output
 
 class ScanResponse(BaseModel):
-    # Reorganized order: Domain → Company Name → Context → Social → Industry → Tech → Competitors → SEO
+    # Reorganized order: Domain → Company Name → Context → Social → Industry → Tech → SEO
     domain: str
     company_name: Optional[str] = None
     context: ContextBlock
     social: Dict[str, Any] = {}  # Social networks + emails combined
     industry: Optional[str] = None                
     industry_secondary: Optional[str] = None
-    tech_stack: List[TechFingerprint] = []  # Changed to have default empty list
-    competitors: List[str] = []  # Competitor domains/companies detected
+    tech_stack: Dict[str, TechFingerprint] = {}  # Category name as key, tools as value
     seo_metrics: Optional[SEOMetrics] = None
     
     # Optional internal data (shown conditionally)
     pages_crawled: List[str] = []
     recent_news: List[NewsItem] = []  # Only 3 most recent news
-    contact_pages: List[str] = []

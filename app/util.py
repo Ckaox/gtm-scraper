@@ -1,6 +1,8 @@
 import re
 from urllib.parse import urljoin, urlparse
 import tldextract
+import httpx
+from typing import Optional
 
 DEFAULT_PATHS = [  # fallback si falla la home
     "/", "/about", "/company", "/product", "/platform", "/solutions",
@@ -45,10 +47,69 @@ def absolutize(base: str, path: str) -> str:
     return urljoin(base, path)
 
 def base_from_domain(domain: str) -> str:
+    """
+    Convierte un dominio en una URL base, probando automáticamente variaciones
+    para manejar casos como dominios que requieren 'www.' o diferentes protocolos.
+    """
     if domain.startswith("http://") or domain.startswith("https://"):
         parsed = urlparse(domain)
         return f"{parsed.scheme}://{parsed.netloc}"
-    return f"https://{domain}"
+    
+    # Limpiar el dominio de espacios y protocolos
+    clean_domain = domain.strip().replace("http://", "").replace("https://", "").rstrip("/")
+    
+    return f"https://{clean_domain}"
+
+
+def smart_domain_resolver(domain: str, timeout: int = 10) -> str:
+    """
+    Resuelve automáticamente la mejor URL para un dominio probando variaciones.
+    Esto soluciona el problema de dominios que requieren 'www.' para funcionar.
+    
+    Args:
+        domain: Dominio a resolver (ej: "kaioland.com")
+        timeout: Timeout para cada prueba
+        
+    Returns:
+        La mejor URL que funciona, o la URL original si ninguna funciona
+    """
+    # Limpiar el dominio
+    if domain.startswith("http://") or domain.startswith("https://"):
+        parsed = urlparse(domain)
+        clean_domain = parsed.netloc
+    else:
+        clean_domain = domain.strip().replace("http://", "").replace("https://", "").rstrip("/")
+    
+    # Variaciones a probar en orden de preferencia
+    variations = [
+        f"https://{clean_domain}",
+        f"https://www.{clean_domain}",
+        f"http://{clean_domain}",
+        f"http://www.{clean_domain}"
+    ]
+    
+    # Si ya tiene www, prueba sin www también
+    if clean_domain.startswith("www."):
+        domain_without_www = clean_domain[4:]
+        variations = [
+            f"https://{clean_domain}",
+            f"https://{domain_without_www}",
+            f"http://{clean_domain}",
+            f"http://{domain_without_www}"
+        ]
+    
+    # Probar cada variación
+    for url in variations:
+        try:
+            response = httpx.head(url, timeout=timeout, follow_redirects=True)
+            if response.status_code in [200, 301, 302, 403]:  # 403 puede ser Cloudflare pero el sitio existe
+                # Usar la URL final después de redirects
+                return str(response.url) if hasattr(response, 'url') else url
+        except Exception:
+            continue  # Probar siguiente variación
+    
+    # Si nada funciona, devolver la primera variación (https sin www)
+    return f"https://{clean_domain}"
 
 def discover_candidate_urls(base_url: str, include_paths=None):
     paths = include_paths or DEFAULT_PATHS

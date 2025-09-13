@@ -1,252 +1,230 @@
-# GTM Scanner - Comprehensive Website Intelligence Tool
+# GTM Scanner - Herramienta Integral de Inteligencia Web
 
-A powerful FastAPI-based tool for comprehensive website analysis and Go-To-Market (GTM) intelligence gathering.
+Una potente herramienta basada en FastAPI para análisis integral de sitios web y recopilación de inteligencia Go-To-Market (GTM).
 
-## 🎯 Overview
+## 🎯 Descripción General
 
-GTM Scanner analyzes websites to extract valuable business intelligence including company information, technology stack, industry classification, SEO metrics, and competitive insights. Perfect for sales teams, market researchers, and business development professionals.
+GTM Scanner analiza sitios web para extraer valiosa inteligencia empresarial incluyendo información de la empresa, stack tecnológico, clasificación de industria, métricas SEO e insights competitivos. Perfecto para equipos de ventas, investigadores de mercado y profesionales de desarrollo de negocio.
 
-## 🚀 Quick Start
+## 🚀 Inicio Rápido
 
-### Installation
+### Instalación
 ```bash
 pip install -r requirements.txt
 ```
 
-### Running the Server
+### Ejecutar el Servidor
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
 
-### Basic Usage
+### Uso Básico
 ```bash
 curl -X POST "http://localhost:8080/scan" \
      -H "Content-Type: application/json" \
      -d '{"domain": "https://example.com"}'
 ```
 
-## 📊 Output Structure
+## 📊 Estructura de Salida
 
-The scanner returns data in the following optimized order:
+El escáner devuelve datos en el siguiente orden optimizado:
 
-### 1. Domain & Company Name
-- **Domain**: Normalized domain name
-- **Company Name**: Extracted using multiple methods:
-  - JSON-LD structured data
+### 1. Dominio y Nombre de Empresa
+- **Dominio**: Nombre de dominio normalizado
+- **Nombre de Empresa**: Extraído usando múltiples métodos:
+  - Datos estructurados JSON-LD
   - OpenGraph site_name
-  - Page title analysis
-  - H1 tag analysis
-  - Domain name cleanup
-  - Fallback mechanisms
+  - Análisis del título de página
+  - Análisis de etiquetas H1
+  - Limpieza del nombre de dominio
+  - Mecanismos de respaldo
 
-### 2. Context Analysis
-- **Bullets**: Key business information points (max 8)
-  - Prioritizes service/product descriptions
-  - Filters out legal/cookie notices
-  - Focuses on business-relevant content
+### 2. Análisis de Contexto
+- **Contexto**: Información empresarial clave simplificada
+  - Prioriza descripciones de servicios/productos
+  - Filtra avisos legales/cookies
+  - Se enfoca en contenido relevante para el negocio
 
-### 3. Social & Communication
-- **Social Networks**: LinkedIn, Twitter, Facebook, Instagram, YouTube, GitHub, TikTok
-- **Emails**: Extracted email addresses (max 5, integrated into social section)
-- **Contact Information**: Contact page URLs
+### 3. Redes Sociales y Comunicación
+- **Redes Sociales**: LinkedIn, Twitter, Facebook, Instagram, YouTube, GitHub, TikTok
+- **Emails**: Direcciones de correo extraídas (máximo 5, integradas en sección social)
+- **Filtrado Mejorado**: Excluye páginas de privacidad, términos legales y cookies
 
-### 4. Industry Classification
-- **Primary Industry**: Main business sector
-- **Secondary Industry**: Additional business areas
-- **Advanced Scoring**: Uses keyword density with word boundary matching
-- **50+ Industry Categories**: From healthcare to fintech to manufacturing
+### 4. Clasificación de Industria
+- **Industria Principal**: Sector empresarial principal
+- **Industria Secundaria**: Áreas empresariales adicionales
+- **Puntuación Avanzada**: Usa densidad de palabras clave con coincidencia de límites de palabra
+- **50+ Categorías de Industria**: Desde salud hasta fintech y manufactura
 
-### 5. Technology Stack
-Organized by categories instead of individual tools:
+### 5. Stack Tecnológico
+Organizado por categorías en lugar de herramientas individuales:
 - **CMS**: WordPress, Webflow, Shopify, etc.
 - **Analytics**: Google Analytics, GTM, Segment, etc.
 - **Marketing Automation**: HubSpot, Marketo, Mailchimp, etc.
 - **E-commerce**: Shopify, WooCommerce, Magento, etc.
 - **JavaScript Frameworks**: React, Vue, Angular, etc.
-- **And 15+ more categories**
+- **Y 15+ categorías más**
 
-### 6. Competitors
-- Automatically detected from website content
-- Based on industry context and mentions
+**🎉 Mejora Importante**: El tech_stack ahora muestra categorías como claves del diccionario (ej: "Analytics", "CMS") en lugar de índices numerados confusos (0-8).
 
-### 7. SEO Metrics
-Comprehensive SEO analysis including:
-- **Meta Title Length**: Character count for SEO optimization
-- **Meta Description Length**: Character count analysis
-- **Structured Data**: JSON-LD, microdata detection
-- **Page Load Time**: Request time in milliseconds
-- **Heading Structure**: H1, H2 count analysis
-- **Image Optimization**: Missing alt text count
-- **Link Analysis**: Internal vs external link counts
-- **Page Size**: Estimated size in KB
+### 6. Métricas SEO
+Análisis SEO integral incluyendo:
+- **Longitud Meta Title**: Conteo de caracteres para optimización SEO
+- **Longitud Meta Description**: Análisis de conteo de caracteres
+- **Datos Estructurados**: Detección de JSON-LD, microdata
+- **Tiempo de Carga**: Tiempo de request en milisegundos
+- **Estructura de Encabezados**: Análisis de conteo H1, H2
+- **Optimización de Imágenes**: Conteo de texto alt faltante
+- **Análisis de Enlaces**: Conteo de enlaces internos vs externos
+- **Tamaño de Página**: Tamaño estimado en KB
 
-## 🔧 API Configuration
+## 🔧 Configuración de API
 
-### Request Parameters
+### Parámetros de Request
 ```json
 {
   "domain": "https://example.com",
-  "max_pages": 6,
-  "extra_urls": [],
-  "careers_overrides": [],
-  "respect_robots": true,
+  "max_pages": 3,
   "timeout_sec": 10,
-  "company_name": "Optional Company Name",
-  "company_linkedin": "https://linkedin.com/company/example"
+  "company_name": "Nombre de Empresa Opcional"
 }
 ```
 
-### Response Fields
+### Campos de Respuesta
 
-#### Core Data (Always Present)
-- `domain`: Target domain
-- `company_name`: Extracted company name
-- `context`: Business context bullets
+#### Datos Principales (Siempre Presentes)
+- `domain`: Dominio objetivo
+- `company_name`: Nombre de empresa extraído
+- `context`: Contexto empresarial simplificado
 
-#### Conditional Data (Only if Found)
-- `social`: Social networks and emails
-- `industry`: Primary industry classification
-- `industry_secondary`: Secondary industry
-- `tech_stack`: Technology categories and tools
-- `competitors`: Detected competitors
-- `seo_metrics`: SEO performance metrics
-- `recent_news`: Latest 3 news items
-- `contact_pages`: Contact page URLs
-- `pages_crawled`: All analyzed URLs
+#### Datos Condicionales (Solo si se Encuentran)
+- `social`: Redes sociales y emails
+- `industry`: Clasificación de industria principal
+- `industry_secondary`: Industria secundaria
+- `tech_stack`: Categorías y herramientas tecnológicas
+- `seo_metrics`: Métricas de rendimiento SEO
+- `recent_news`: Últimos 3 elementos de noticias
+- `pages_crawled`: Todas las URLs analizadas
 
-## 📈 SEO Metrics Explained
+## 📈 Métricas SEO Explicadas
 
-### Meta Title Length
-- **Optimal**: 50-60 characters
-- **Purpose**: Search engine result display
-- **Impact**: Click-through rates
+### Longitud Meta Title
+- **Óptimo**: 50-60 caracteres
+- **Propósito**: Visualización en resultados de búsqueda
+- **Impacto**: Tasas de clics
 
-### Meta Description Length
-- **Optimal**: 150-160 characters
-- **Purpose**: Search snippet preview
-- **Impact**: User engagement
+### Longitud Meta Description
+- **Óptimo**: 150-160 caracteres
+- **Propósito**: Vista previa del snippet de búsqueda
+- **Impacto**: Engagement del usuario
 
-### Page Load Time
-- **Good**: < 2000ms
-- **Average**: 2000-4000ms
-- **Poor**: > 4000ms
-- **Impact**: User experience and SEO ranking
+### Tiempo de Carga de Página
+- **Bueno**: < 2000ms
+- **Promedio**: 2000-4000ms
+- **Malo**: > 4000ms
+- **Impacto**: Experiencia del usuario y ranking SEO
 
-### Structured Data
-- **JSON-LD**: Rich snippets enablement
-- **Microdata**: Enhanced search results
-- **Impact**: Search visibility
+### Datos Estructurados
+- **JSON-LD**: Habilitación de rich snippets
+- **Microdata**: Resultados de búsqueda mejorados
+- **Impacto**: Visibilidad en búsquedas
 
-### Heading Structure
-- **H1 Count**: Should be 1 per page
-- **H2 Count**: Content organization
-- **Impact**: Content hierarchy and SEO
+## 🏭 Categorías de Industria
 
-### Image Optimization
-- **Alt Text Missing**: Accessibility concern
-- **Impact**: SEO and accessibility compliance
+El escáner identifica 50+ industrias incluyendo:
 
-### Link Analysis
-- **Internal Links**: Site navigation strength
-- **External Links**: Authority and relevance
-- **Impact**: Page authority and user experience
-
-## 🏭 Industry Categories
-
-The scanner identifies 50+ industries including:
-
-### Technology
+### Tecnología
 - Software & SaaS
-- Cybersecurity
-- AI & Analytics
-- Hardware & Electronics
-- Cloud & Infrastructure
+- Ciberseguridad
+- IA & Analytics
+- Hardware & Electrónicos
+- Cloud & Infraestructura
 
-### Healthcare
-- Hospitals & Clinics
-- Pharmaceutical & Biotech
-- Medical Devices
-- Telemedicine
+### Salud
+- Hospitales & Clínicas
+- Farmacéutica & Biotech
+- Dispositivos Médicos
+- Telemedicina
 
-### Finance
-- Banking Services
-- Fintech & Payments
-- Insurance
-- Investment Management
+### Finanzas
+- Servicios Bancarios
+- Fintech & Pagos
+- Seguros
+- Gestión de Inversiones
 
-### Commerce
+### Comercio
 - E-commerce
 - Retail
-- Fashion & Apparel
-- Food & Beverage
+- Moda & Vestimenta
+- Comida & Bebidas
 
-### And many more...
+### Y muchas más...
 
-## 🎯 Technology Detection
+## 🎯 Detección de Tecnología
 
-### Categories Detected
-1. **CMS**: Content Management Systems
-2. **E-commerce**: Online store platforms
-3. **Analytics**: Traffic and behavior tracking
-4. **Marketing Automation**: Email and lead management
-5. **Live Chat**: Customer support tools
-6. **CRM**: Customer relationship management
-7. **A/B Testing**: Conversion optimization
-8. **Advertising**: Marketing pixels and tags
-9. **CDN**: Content delivery networks
-10. **JavaScript Frameworks**: Frontend technologies
-11. **CSS Frameworks**: Styling libraries
-12. **Security**: Protection and verification
-13. **Performance**: Speed optimization
-14. **Maps**: Location services
-15. **Forms**: Data collection tools
-16. **Payment**: Transaction processing
+### Categorías Detectadas
+1. **CMS**: Sistemas de Gestión de Contenido
+2. **E-commerce**: Plataformas de tienda online
+3. **Analytics**: Seguimiento de tráfico y comportamiento
+4. **Marketing Automation**: Gestión de email y leads
+5. **Live Chat**: Herramientas de soporte al cliente
+6. **CRM**: Gestión de relaciones con clientes
+7. **A/B Testing**: Optimización de conversiones
+8. **Advertising**: Píxeles y tags de marketing
+9. **CDN**: Redes de entrega de contenido
+10. **JavaScript Frameworks**: Tecnologías frontend
+11. **CSS Frameworks**: Librerías de estilos
+12. **Security**: Protección y verificación
+13. **Performance**: Optimización de velocidad
+14. **Maps**: Servicios de localización
+15. **Forms**: Herramientas de recopilación de datos
+16. **Payment**: Procesamiento de transacciones
 
-## ⚡ Performance Optimizations
+## ⚡ Optimizaciones de Rendimiento
 
-### Free Tier Optimizations
-- Maximum 6 pages crawled
-- HTML size limit: 1MB per page
-- Maximum 15 technology detections
-- Timeout: 10 seconds per request
-- Connection limits for shared hosting
+### Optimizaciones para Hosting Gratuito
+- Máximo 3 páginas crawleadas (reducido de 6)
+- Límite de tamaño HTML: 1MB por página
+- Máximo 8 detecciones tecnológicas por categoría
+- Timeout: 8-10 segundos por request
+- Límites de conexión para hosting compartido
 
-### Speed Improvements
-- Early breaking in tech detection
-- Prioritized content extraction
-- Efficient HTML parsing
-- Smart candidate URL selection
+### Mejoras de Velocidad
+- Detención temprana en detección de tecnología
+- Extracción de contenido priorizada
+- Parsing HTML eficiente
+- Selección inteligente de URLs candidatas
+- Procesamiento limitado de noticias y emails
 
-## 🛠️ Development
+## 🛠️ Desarrollo
 
-### Project Structure
+### Estructura del Proyecto
 ```
 app/
-├── main.py              # FastAPI application
-├── schemas.py           # Pydantic models
-├── fetch.py            # HTTP client with caching
-├── util.py             # Utility functions
+├── main.py              # Aplicación FastAPI
+├── schemas.py           # Modelos Pydantic
+├── fetch.py            # Cliente HTTP con caché
+├── util.py             # Funciones de utilidad
 └── parsers/
-    ├── company_name.py  # Company name extraction
-    ├── industry.py      # Industry classification
-    ├── techstack.py     # Technology detection
-    ├── seo_metrics.py   # SEO analysis
-    ├── emails.py        # Email extraction
-    ├── context.py       # Content analysis
-    ├── competitors.py   # Competitor detection
-    └── news.py          # News extraction
+    ├── company_name.py  # Extracción de nombre de empresa
+    ├── industry.py      # Clasificación de industria
+    ├── techstack.py     # Detección de tecnología
+    ├── seo_metrics.py   # Análisis SEO
+    ├── emails.py        # Extracción de emails
+    └── news.py          # Extracción de noticias
 ```
 
-### Key Features Removed for Performance
-- **GTM Score**: Complex scoring algorithm
-- **Feeds**: RSS/Atom feed discovery
-- **Bullets**: Reduced from 10 to 8 items
-- **LinkedIn Intelligence**: Heavy API calls
-- **Growth Signals**: Complex analysis
+### Características Eliminadas para Rendimiento
+- **Bullets**: Análisis de contexto detallado (eliminado completamente)
+- **Competitors**: Detección de competidores (eliminado - siempre vacío)
+- **Contact Pages**: Páginas de contacto (eliminado - no se usaba)
+- **Feeds**: Descubrimiento de feeds RSS/Atom (eliminado)
+- **LinkedIn Intelligence**: Llamadas pesadas a API (eliminado)
+- **Growth Signals**: Análisis complejo (eliminado)
 
-## 🚀 Deployment
+## 🚀 Despliegue
 
-### Render.com (Free Tier)
+### Render.com (Nivel Gratuito)
 ```yaml
 # render.yaml
 services:
@@ -266,22 +244,40 @@ COPY app/ ./app/
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
 ```
 
-## 📝 License
+## 🧪 Resultados de Pruebas
 
-This project is available for commercial and non-commercial use.
+### ✅ Rendimiento Optimizado
+```
+GitHub.com: 1.90s ⚡
+Hospital Italiano: 3.34s ✅  
+Google.com: 0.08s ⚡⚡⚡
+```
 
-## 🤝 Contributing
+### ✅ Dominios Problemáticos Resueltos
+```
+galiciamaxica.eu: ✅ 0.46s (funciona con redirección)
+acrylicosvallejo.com: ✅ 0.65s (funciona correctamente)
+kaioland.com: ✅ 0.28s (funciona con www)
+```
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+**Tiempo promedio**: 0.47s para dominios problemáticos
 
-## 📞 Support
+## 📝 Licencia
 
-For issues and feature requests, please create an issue in the repository.
+Este proyecto está disponible para uso comercial y no comercial.
+
+## 🤝 Contribuciones
+
+1. Fork del repositorio
+2. Crear una rama de feature
+3. Hacer tus cambios
+4. Agregar tests si aplica
+5. Enviar un pull request
+
+## 📞 Soporte
+
+Para problemas y solicitudes de features, por favor crear un issue en el repositorio.
 
 ---
 
-**GTM Scanner** - Turning websites into actionable business intelligence.
+**GTM Scanner** - Convirtiendo sitios web en inteligencia empresarial accionable.

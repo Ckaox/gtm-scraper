@@ -131,10 +131,10 @@ PATTERNS = {
     ],
 }
 
-def detect_tech(url: str, html: str) -> List[TechFingerprint]:
+def detect_tech(url: str, html: str) -> List[dict]:
     """
     Detect technologies and group them by category.
-    Returns list of TechFingerprint with category and list of tools.
+    Returns list of dict with category and tech data.
     """
     if not html: 
         return []
@@ -156,17 +156,17 @@ def detect_tech(url: str, html: str) -> List[TechFingerprint]:
                 found_by_category[cat]["tools"].append(tool)
                 found_by_category[cat]["evidence"].append(pattern)
     
-    # Convert to list of TechFingerprint
+    # Convert to list of dicts with category info
     result = []
     for category, data in found_by_category.items():
         # Remove duplicates from tools
         unique_tools = list(dict.fromkeys(data["tools"]))
         evidence = " | ".join(data["evidence"][:3])  # Limit evidence for readability
         
-        result.append(TechFingerprint(
-            category=category,
-            tools=unique_tools,
-            evidence=evidence
-        ))
+        result.append({
+            "category": category,
+            "tools": unique_tools,
+            "evidence": evidence
+        })
     
     return result
