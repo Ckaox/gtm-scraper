@@ -79,6 +79,35 @@ class SEOMetrics(BaseModel):
     external_links_count: Optional[int] = None
     page_size_kb: Optional[float] = None  # Page size in KB
 
+# -------- Enrichment Data (NEW)
+
+class DomainIntelligence(BaseModel):
+    hosting_ip: Optional[str] = None
+    hosting_provider: Optional[str] = None
+    email_provider: Optional[str] = None
+    response_time_ms: Optional[int] = None
+
+class BusinessIntelligence(BaseModel):
+    verified_business: Optional[bool] = None
+    business_type: Optional[str] = None
+    location: Optional[str] = None
+    confidence: Optional[str] = None
+    response_time_ms: Optional[int] = None
+
+class LocalPresence(BaseModel):
+    business_verified: Optional[bool] = None
+    rating: Optional[float] = None
+    review_count: Optional[int] = None
+    phone_verified: Optional[str] = None
+    business_hours: Optional[str] = None
+    response_time_ms: Optional[int] = None
+
+class EnrichmentData(BaseModel):
+    domain_intelligence: Optional[DomainIntelligence] = None
+    business_intelligence: Optional[BusinessIntelligence] = None
+    local_presence: Optional[LocalPresence] = None
+    enrichment_timing: Optional[Dict[str, Any]] = None
+
 # -------- News (novedades internas del sitio)
 
 class NewsItem(BaseModel):
@@ -98,6 +127,9 @@ class ScanResponse(BaseModel):
     industry_secondary: Optional[str] = None
     tech_stack: Dict[str, TechFingerprint] = {}  # Category name as key, tools as value
     seo_metrics: Optional[SEOMetrics] = None
+    
+    # External enrichment data (NEW)
+    enrichment: Optional[EnrichmentData] = None
     
     # Optional internal data (shown conditionally)
     pages_crawled: List[str] = []

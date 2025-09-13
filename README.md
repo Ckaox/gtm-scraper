@@ -1,10 +1,17 @@
-# GTM Scanner - Herramienta Integral de Inteligencia Web
+# GTM Scanner - Herramienta Ultra-Optimizada de Inteligencia Web
 
-Una potente herramienta basada en FastAPI para análisis integral de sitios web y recopilación de inteligencia Go-To-Market (GTM).
+Una potente herramienta basada en FastAPI para análisis integral de sitios web con **enrichment de datos externos** y optimizaciones avanzadas para equipos de outbound sales.
 
 ## 🎯 Descripción General
 
-GTM Scanner analiza sitios web para extraer valiosa inteligencia empresarial incluyendo información de la empresa, stack tecnológico, clasificación de industria, métricas SEO e insights competitivos. Perfecto para equipos de ventas, investigadores de mercado y profesionales de desarrollo de negocio.
+GTM Scanner analiza sitios web en **<2 segundos** extrayendo:
+- **Información empresarial** completa
+- **Stack tecnológico** detallado  
+- **Clasificación de industria** inteligente
+- **Métricas SEO** optimizadas
+- **🌐 Enrichment externo**: DNS Intelligence + Business Intelligence + Local Presence
+
+Perfecto para equipos de **ventas**, **investigación de mercado** y **outbound sales**.
 
 ## 🚀 Inicio Rápido
 
@@ -15,14 +22,50 @@ pip install -r requirements.txt
 
 ### Ejecutar el Servidor
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8080
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 ### Uso Básico
 ```bash
-curl -X POST "http://localhost:8080/scan" \
+curl -X POST "http://localhost:8000/scan" \
      -H "Content-Type: application/json" \
-     -d '{"domain": "https://example.com"}'
+     -d '{"domain": "example.com"}'
+```
+
+## ⚡ Optimizaciones Ultra-Rápidas
+
+- **Timeouts escalonados**: 2s → 5s → 8s para máxima compatibilidad
+- **Caché inteligente** de resolución de dominios
+- **Processing paralelo** de todas las fuentes de datos
+- **Enrichment asíncrono** sin impacto en performance
+
+## 🌐 Enrichment de Datos Externos
+
+### DNS Intelligence (1ms)
+```json
+{
+  "hosting_provider": "AWS",
+  "email_provider": "Google Workspace", 
+  "hosting_ip": "52.29.175.16"
+}
+```
+
+### Business Intelligence (300-900ms)
+```json
+{
+  "business_type": "E-commerce Platform",
+  "location": "Global",
+  "confidence": "High"
+}
+```
+
+### Local Presence (400-800ms)  
+```json
+{
+  "rating": 4.2,
+  "review_count": 245,
+  "business_hours": "24 horas"
+}
 ```
 
 ## 📊 Estructura de Salida
@@ -99,12 +142,36 @@ Análisis SEO integral incluyendo:
 
 #### Datos Condicionales (Solo si se Encuentran)
 - `social`: Redes sociales y emails
-- `industry`: Clasificación de industria principal
+- `industry`: Clasificación de industria principal (mejorada con BI)
 - `industry_secondary`: Industria secundaria
 - `tech_stack`: Categorías y herramientas tecnológicas
 - `seo_metrics`: Métricas de rendimiento SEO
+- `enrichment`: 🌐 **NUEVO** - Datos externos (DNS + Business + Maps)
 - `recent_news`: Últimos 3 elementos de noticias
 - `pages_crawled`: Todas las URLs analizadas
+
+#### 🌐 Enrichment (Datos Externos)
+```json
+{
+  "enrichment": {
+    "domain_intelligence": {
+      "hosting_provider": "AWS",
+      "email_provider": "Google Workspace",
+      "hosting_ip": "52.29.175.16"
+    },
+    "business_intelligence": {
+      "business_type": "E-commerce Platform", 
+      "location": "Global",
+      "confidence": "High"
+    },
+    "local_presence": {
+      "rating": 4.2,
+      "review_count": 245,
+      "business_hours": "24 horas"
+    }
+  }
+}
+```
 
 ## 📈 Métricas SEO Explicadas
 

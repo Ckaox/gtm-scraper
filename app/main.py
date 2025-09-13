@@ -23,6 +23,7 @@ from .parsers.emails import extract_emails
 from .parsers.industry import detectar_principal_y_secundaria
 from .parsers.company_name import extract_company_name_from_html
 from .parsers.seo_metrics import extract_seo_metrics
+from .enrichment import get_enrichment_data
 
 # Logger setup
 logger = logging.getLogger(__name__)
@@ -322,7 +323,53 @@ async def scan(req: ScanRequest):
         if error_details:
             print(f"   ⚠️ Warnings: {len(error_details)} issues encountered")
 
-        # 🎯 RESPUESTA OPTIMIZADA
+        # � ENRIQUECIMIENTO DE DATOS EXTERNO
+        enrichment_data = None
+        if company_name and company_name != "Unknown":
+            try:
+                step_start = time.time()
+                enrichment_result = await get_enrichment_data(domain_of(base), company_name)
+                enrichment_time = time.time() - step_start
+                
+                if enrichment_result and len(enrichment_result) > 1:  # Más que solo timing
+                    enrichment_data = EnrichmentData(**enrichment_result)
+                    sources_found = enrichment_result.get("enrichment_timing", {}).get("sources_found", 0)
+                    total_time = enrichment_result.get("enrichment_timing", {}).get("total_time_ms", 0)
+                    print(f"🌐 Enrichment: {sources_found} fuentes en {total_time}ms")
+                    
+                    # 🔄 MEJORAR INDUSTRIA CON BUSINESS INTELLIGENCE
+                    if enrichment_data.business_intelligence and enrichment_data.business_intelligence.business_type:
+                        business_type = enrichment_data.business_intelligence.business_type
+                        confidence = enrichment_data.business_intelligence.confidence
+                        
+                        # Mapear business types a industrias más específicas
+                        if business_type != "Unknown" and confidence == "High":
+                            improved_industry = None
+                            
+                            if "E-commerce" in business_type:
+                                improved_industry = "E-commerce y Retail"
+                            elif "Technology" in business_type or "SaaS" in business_type:
+                                improved_industry = "Tecnología y Software (SaaS/Cloud)"
+                            elif "Media" in business_type or "Streaming" in business_type:
+                                improved_industry = "Entretenimiento y Eventos"
+                            elif "Hotel" in business_type:
+                                improved_industry = "Hotelería y Alojamiento"
+                            elif "Manufacturing" in business_type:
+                                improved_industry = "Manufactura e Industria"
+                            elif "Marketing" in business_type:
+                                improved_industry = "Medios, Publicidad y Marketing"
+                            elif "Fintech" in business_type:
+                                improved_industry = "Fintech y Servicios Financieros"
+                            
+                            # Solo reemplazar si la industria original era genérica o None
+                            if improved_industry and (not principal or principal in ["None", "No determinada"]):
+                                principal = improved_industry
+                                print(f"🔄 Industria mejorada con BI: '{improved_industry}' (basado en '{business_type}')")
+                    
+            except Exception as e:
+                print(f"🌐 Enrichment error: {str(e)}")
+
+        # �🎯 RESPUESTA OPTIMIZADA
         all_pages = [base] + additional_pages
         
         response_data = {
@@ -341,8 +388,11 @@ async def scan(req: ScanRequest):
             response_data["social"] = social
         if seo_metrics:
             response_data["seo_metrics"] = seo_metrics
-        if news_items:
-            response_data["recent_news"] = [NewsItem(title=item["title"], body=item["body"], url=item["url"]) for item in news_items[:2]]
+        if enrichment_data:
+            response_data["enrichment"] = enrichment_data
+        
+        # News removido para optimización
+        response_data["recent_news"] = []
 
         return ScanResponse(**response_data)
 
