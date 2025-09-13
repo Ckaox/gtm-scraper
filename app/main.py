@@ -256,8 +256,6 @@ async def scan(req: ScanRequest):
         pages_crawled=pages,
         context=context_block,
         tech_stack=tech,
-        jobs=None,            # Jobs fuera del pipeline por ahora
-        job_sources=[],       # vacío por ahora
         news=news_items[:5],  # últimas 5 noticias internas si existen
     )
 
