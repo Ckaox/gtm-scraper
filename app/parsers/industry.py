@@ -9,6 +9,15 @@ from typing import List, Dict, Tuple, Optional
 # ============================================================
 
 INDUSTRIAS: Dict[str, List[str]] = {
+    # Consumo, Moda y Lifestyle (agrupado)
+    "Consumo, Moda y Lifestyle": [
+        "retail", "tienda", "tiendas", "store", "stores", "boutique", "fashion", "apparel", "clothing", "ropa", "moda", "indumentaria", "vestimenta", "calzado", "zapatos", "zapatillas", "textil", "textiles", "prenda", "prendas", "diseño de moda", "diseñador", "diseñadora", "confeccion", "confección", "coleccion", "colección", "tendencia", "tendencias", "marca de ropa", "atelier", "sastre", "sastreria", "sastrería", "footwear", "garment", "clothing brand", "runway", "fashion show", "trendy", "style", "wardrobe", "lifestyle", "decoracion", "decoración", "hogar", "furniture", "muebles", "mueble", "home decor", "appliance", "home goods", "interior design", "home improvement", "kitchen", "bathroom", "bedroom", "living room", "lighting", "home furnishing", "home accessories", "beauty", "belleza", "cosmetica", "cosmética", "cosmeticos", "cosméticos", "cuidado personal", "skincare", "peluqueria", "peluquería", "salon de belleza", "salón de belleza", "spa", "spas", "estetica", "estética", "wellness", "fitness", "gimnasio", "gimnasios", "gym", "personal care", "personal care products", "beauty products", "beauty salon", "beauty treatment", "cosmetics", "aesthetic", "health club", "beauty industry", "makeup", "maquillaje", "perfume", "fragancia", "fragrance", "cosmetics shop", "cosmetics store", "beauty shop", "beauty store", "perfume shop", "perfume store", "skincare shop", "skincare store", "maquillaje shop", "maquillaje store", "cosmética shop", "cosmética store", "cosmetica shop", "cosmetica store", "fashion shop", "fashion store", "lifestyle shop", "lifestyle store", "ropa shop", "ropa store", "zapatos shop", "zapatos store", "calzado shop", "calzado store", "boutique shop", "boutique store", "moda shop", "moda store", "indumentaria shop", "indumentaria store", "vestimenta shop", "vestimenta store"
+    ],
+    # E-commerce y Tiendas Online (nuevo)
+    "E-commerce y Tiendas Online": [
+        "ecommerce", "e-commerce", "comercio electronico", "comercio electrónico", "tienda online", "tiendas online", "online store", "online shopping", "shop", "checkout", "carrito", "cart", "shopify", "woocommerce", "prestashop", "magento", "bigcommerce", "marketplace", "marketplaces", "venta online", "ventas online", "catalogo online", "catálogo online", "dropshipping", "fulfillment", "logistica ecommerce", "logística ecommerce", "pago online", "e-commerce platform", "online marketplace", "digital storefront", "digital commerce", "online retail", "e-shop", "eshop", "tienda virtual", "plataforma de comercio", "e-tailer", "etailer", "e-tailing", "e-tienda", "ecommerce platform", "shop online", "boutique online", "fashion store", "fashion shop", "lifestyle shop", "lifestyle store", "retail online", "tienda de ropa online", "cosmetics shop", "cosmetics store", "beauty shop", "beauty store", "sports shop", "sports store", "furniture shop", "furniture store", "decor shop", "decor store", "gift shop", "gift store", "tattoo shop", "tattoo store", "ink shop", "ink store", "muebles online", "decoracion online", "ropa online", "zapatos online", "calzado online", "accesorios online", "perfumeria online", "perfume online", "cosmetica online", "cosmética online", "maquillaje online", "jugueteria online", "juguetería online", "regalos online", "regalo online", "hogar online", "home online", "kitchen online", "cocina online", "bedroom online", "dormitorio online", "living online", "salon online", "salón online", "eventos online", "event shop", "event store"
+    ],
+
     # Salud y ciencias de la vida
     "Salud (Hospitales y Clínicas)": [
         "salud", "hospital", "hospitales", "clinica", "clínica", "clinicas", "clínicas", "sanatorio", "sanatorios",
@@ -45,24 +54,9 @@ INDUSTRIAS: Dict[str, List[str]] = {
         "health app", "medical app", "health platform", "digital therapeutics", "remote patient monitoring"
     ],
 
-    # Educación
-    "Educación (Escuelas y Universidades)": [
-        "educacion", "educación", "escuela", "escuelas", "colegio", "colegios", "universidad", "universidades",
-        "campus", "facultad", "facultades", "licenciatura", "licenciaturas", "posgrado", "postgrado", "maestria", "maestría",
-        "carrera", "carreras", "instituto", "institutos", "academia", "academias", "estudiante", "estudiantes",
-        "alumno", "alumnos", "docente", "docentes", "profesor", "profesores", "educativo", "educativa", "pedagogia", "pedagogía",
-        "enseñanza", "aprendizaje", "formacion", "formación", "capacitacion", "capacitación", "curso", "cursos", "seminario",
-        "school", "schools", "college", "university", "campus", "faculty", "k12", "education", "educational",
-        "student", "students", "teacher", "teaching", "learning", "training", "course", "academic", "curriculum"
-    ],
-    "EdTech y e-Learning": [
-        "elearning", "e-learning", "edtech", "educacion online", "educación online", "plataforma educativa", "plataformas educativas",
-        "curso online", "cursos online", "capacitacion online", "capacitación online", "formacion online", "formación online",
-        "lms", "aula virtual", "aulas virtuales", "campus virtual", "educacion digital", "educación digital",
-        "aprendizaje virtual", "mooc", "webinar", "webinars", "contenido educativo", "material educativo",
-        "edtech", "online course", "online courses", "learning platform", "learning platforms", "mooc", "lms", 
-        "virtual classroom", "digital learning", "online education", "e-learning platform", "educational technology",
-        "learning management system", "virtual learning", "distance learning", "remote learning"
+    # Educación y Universidades (agrupado y ampliado)
+    "Educación y Universidades": [
+        "educacion", "educación", "escuela", "escuelas", "colegio", "colegios", "universidad", "universidades", "campus", "facultad", "facultades", "licenciatura", "licenciaturas", "posgrado", "postgrado", "maestria", "maestría", "doctorado", "phd", "mba", "carrera", "carreras", "instituto", "institutos", "academia", "academias", "estudiante", "estudiantes", "alumno", "alumnos", "docente", "docentes", "profesor", "profesores", "educativo", "educativa", "pedagogia", "pedagogía", "enseñanza", "aprendizaje", "formacion", "formación", "capacitacion", "capacitación", "curso", "cursos", "seminario", "diplomado", "taller", "workshop", "congreso", "simposio", "school", "schools", "college", "university", "universities", "campus", "faculty", "k12", "education", "educational", "student", "students", "teacher", "teaching", "learning", "training", "course", "academic", "curriculum", "professor", "lecturer", "research", "investigacion", "investigación", "postgraduate", "undergraduate", "degree", "bachelor", "master", "doctoral", "distance learning", "remote learning", "virtual classroom", "online education", "e-learning", "elearning", "edtech", "plataforma educativa", "plataformas educativas", "aula virtual", "aulas virtuales", "campus virtual", "educacion digital", "educación digital", "aprendizaje virtual", "mooc", "webinar", "webinars", "contenido educativo", "material educativo", "online course", "online courses", "learning platform", "learning platforms", "lms", "educational technology", "learning management system", "digital learning"
     ],
 
     # Tecnología
@@ -153,21 +147,6 @@ INDUSTRIAS: Dict[str, List[str]] = {
         "dropshipping", "fulfillment", "logistica ecommerce", "logística ecommerce", "pago online",
         "e-commerce", "online store", "cart", "marketplace", "magento", "bigcommerce", "online shopping",
         "digital commerce", "online retail", "e-commerce platform", "online marketplace", "digital storefront"
-    ],
-    "Retail (Tiendas Físicas)": [
-        "retail", "tienda", "tiendas", "sucursal", "sucursales", "punto de venta", "puntos de venta", "caja", "cajas",
-        "inventario", "inventarios", "omnichannel", "multicanal", "cadena de tiendas", "franquicia", "franquicias",
-        "merchandising", "exhibicion", "exhibición", "gondola", "góndola", "local comercial", "centro comercial", "mall",
-        "store", "stores", "pos", "point of sale", "inventory", "brick and mortar", "omnichannel",
-        "retail chain", "franchise", "shopping center", "physical store", "retail management", "store operations"
-    ],
-    "Moda y Calzado": [
-        "moda", "indumentaria", "ropa", "vestimenta", "calzado", "zapatos", "zapatillas", "textil", "textiles",
-        "boutique", "boutiques", "prendas", "prenda", "diseño de moda", "diseñador", "diseñadora", "confeccion", "confección",
-        "temporada", "coleccion", "colección", "tendencia", "tendencias", "pasarela", "modelo", "modelos",
-        "talla", "tallas", "marca de ropa", "atelier", "sastre", "sastreria", "sastrería",
-        "fashion", "apparel", "clothing", "footwear", "garment", "fashion design", "fashion brand",
-        "clothing brand", "fashion industry", "runway", "fashion show", "trendy", "style", "wardrobe"
     ],
     "Alimentos y Bebidas (F&B)": [
         "alimentos", "alimento", "bebidas", "bebida", "comida", "comidas", "fabrica de alimentos", "fábrica de alimentos",
@@ -264,12 +243,7 @@ INDUSTRIAS: Dict[str, List[str]] = {
         "real estate development", "apartment", "house", "office", "commercial property", "property investment"
     ],
     "Hogar, Muebles y Decoración": [
-        "muebles", "mueble", "decoracion", "decoración", "hogar", "equipamiento", "electrodomesticos", "electrodomésticos",
-        "cocina", "cocinas", "baño", "baños", "dormitorio", "dormitorios", "living", "comedor", "jardin", "jardín",
-        "iluminacion", "iluminación", "lampara", "lámparas", "cortina", "cortinas", "alfombra", "alfombras",
-        "diseño de interiores", "interiorismo", "deco", "mobiliario", "amoblamiento",
-        "furniture", "home decor", "appliance", "home goods", "interior design", "home improvement",
-        "kitchen", "bathroom", "bedroom", "living room", "lighting", "home furnishing", "home accessories"
+        "muebles", "mueble", "decoracion", "decoración", "hogar", "equipamiento", "electrodomesticos", "electrodomésticos", "furniture", "home decor", "appliance", "home goods", "interior design", "home improvement", "kitchen", "bathroom", "bedroom", "living room", "lighting", "home furnishing", "home accessories", "cocina", "cocinas", "baño", "baños", "dormitorio", "dormitorios", "living", "comedor", "jardin", "jardín", "iluminacion", "iluminación", "lampara", "lámparas", "cortina", "cortinas", "alfombra", "alfombras", "diseño de interiores", "interiorismo", "deco", "mobiliario", "amoblamiento", "decor store", "decor shop", "furniture shop", "furniture store", "home shop", "home store", "kitchen shop", "kitchen store", "bedroom shop", "bedroom store", "bathroom shop", "bathroom store", "lighting shop", "lighting store", "living shop", "living store", "salon shop", "salon store", "salón shop", "salón store", "jardin shop", "jardin store", "jardín shop", "jardín store"
     ],
 
     # Viajes, turismo y gastronomía
@@ -307,29 +281,10 @@ INDUSTRIAS: Dict[str, List[str]] = {
         "content marketing", "brand strategy", "creative agency", "media agency", "public relations", "graphic design"
     ],
     "Entretenimiento y Eventos": [
-        "entretenimiento", "evento", "eventos", "ticketing", "concierto", "conciertos", "festival", "festivales",
-        "teatro", "teatros", "cine", "espectaculo", "espectáculo", "espectáculos", "show", "shows", "musica", "música",
-        "artista", "artistas", "productor", "productora", "organizacion de eventos", "organización de eventos",
-        "salon de fiestas", "salón de fiestas", "wedding planner", "dj", "sonido", "iluminacion escenica", "iluminación escénica",
-        "entertainment", "events", "ticketing", "concert", "festival", "theater", "cinema", "show", "music",
-        "artist", "event production", "event management", "party planning", "wedding planning", "live entertainment"
+        "entretenimiento", "evento", "eventos", "ticketing", "concierto", "conciertos", "festival", "festivales", "teatro", "teatros", "cine", "espectaculo", "espectáculo", "espectáculos", "show", "shows", "musica", "música", "artista", "artistas", "productor", "productora", "organizacion de eventos", "organización de eventos", "salon de fiestas", "salón de fiestas", "wedding planner", "dj", "sonido", "iluminacion escenica", "iluminación escénica", "entertainment", "events", "ticketing", "concert", "festival", "theater", "cinema", "show", "music", "artist", "event production", "event management", "party planning", "wedding planning", "live entertainment", "event shop", "event store", "ticket shop", "ticket store", "concierto shop", "concierto store", "festival shop", "festival store", "cine shop", "cine store", "musica shop", "musica store", "show shop", "show store", "fiesta shop", "fiesta store", "wedding shop", "wedding store"
     ],
     "Deportes": [
-        "futbol", "fútbol", "football", "soccer", "baloncesto", "basketball", "tenis", "tennis", "deporte", "deportes",
-        "sport", "sports", "equipo", "team", "club deportivo", "athletic club", "cantera", "academia deportiva",
-        "entrenamiento", "training", "estadio", "stadium", "campo deportivo", "sporting", "atletismo", "athletics",
-        "natacion", "natación", "swimming", "gimnasia", "gymnastics", "voleibol", "volleyball", "handball", "balonmano",
-        "rugby", "hockey", "golf", "paddle", "padel", "ciclismo", "cycling", "running", "maratón", "marathon",
-        "primer equipo", "segunda division", "liga", "league", "championship", "campeonato", "torneos", "tournaments",
-        "jugador", "jugadores", "players", "entrenador", "coach", "tecnico", "técnico", "athletic", "deportivo",
-        "sports club", "football club", "basketball team", "tennis club", "golf club", "sporting club", "athletic team"
-    ],
-    "Juegos y eSports": [
-        "videojuegos", "gaming", "esports", "e-sports", "juego movil", "juego móvil", "game studio", "estudio de juegos",
-        "desarrollador de juegos", "publisher", "consola", "consolas", "playstation", "xbox", "nintendo", "pc gaming",
-        "mobile gaming", "indie game", "mmorpg", "fps", "rpg", "streaming", "twitch", "youtube gaming", "gamers",
-        "video game", "game dev", "game development", "game studio", "mobile game", "gaming industry",
-        "game publisher", "console gaming", "online gaming", "game streaming", "competitive gaming", "gaming community"
+        "futbol", "fútbol", "football", "soccer", "baloncesto", "basketball", "tenis", "tennis", "deporte", "deportes", "sport", "sports", "equipo", "team", "club deportivo", "athletic club", "cantera", "academia deportiva", "entrenamiento", "training", "estadio", "stadium", "campo deportivo", "sporting", "atletismo", "athletics", "natacion", "natación", "swimming", "gimnasia", "gymnastics", "voleibol", "volleyball", "handball", "balonmano", "rugby", "hockey", "golf", "paddle", "padel", "ciclismo", "cycling", "running", "maratón", "marathon", "primer equipo", "segunda division", "liga", "league", "championship", "campeonato", "torneos", "tournaments", "jugador", "jugadores", "players", "entrenador", "coach", "tecnico", "técnico", "athletic", "deportivo", "sports club", "football club", "basketball team", "tennis club", "golf club", "sporting club", "athletic team", "sports shop", "sports store", "deportes shop", "deportes store", "tienda de deportes", "tienda deportiva", "ropa deportiva", "calzado deportivo", "accesorios deportivos", "balones", "pelotas", "raquetas", "zapatillas deportivas", "camisetas deportivas", "equipamiento deportivo"
     ],
 
     # Telecom y digital
@@ -365,16 +320,6 @@ INDUSTRIAS: Dict[str, List[str]] = {
         "evaluacion de desempeño", "evaluación de desempeño", "clima laboral", "cultura organizacional", "onboarding",
         "human resources", "recruiting", "recruitment", "headhunter", "staffing", "payroll", "talent acquisition",
         "hr services", "workforce management", "employee training", "performance management", "hr consulting"
-    ],
-
-    # Bienestar y belleza
-    "Bienestar, Fitness y Belleza": [
-        "bienestar", "wellness", "fitness", "gimnasio", "gimnasios", "spa", "spas", "estetica", "estética",
-        "cosmetica", "cosmética", "cosmeticos", "cosméticos", "belleza", "peluqueria", "peluquería", "salon de belleza", "salón de belleza",
-        "masaje", "masajes", "terapia", "terapias", "relajacion", "relajación", "entrenamiento", "personal trainer",
-        "nutricion", "nutrición", "dieta", "suplemento", "suplementos", "yoga", "pilates", "crossfit", "zumba",
-        "wellness", "gym", "spa", "beauty", "cosmetics", "aesthetic", "fitness center", "beauty salon",
-        "massage therapy", "personal training", "nutrition", "health club", "beauty treatment", "skincare"
     ],
 
     # Textil, calzado y afines (manufactura consumo)
@@ -423,26 +368,21 @@ def _score_text(text: str, keywords: List[str]) -> Tuple[int, List[str]]:
     
     for kw in keywords:
         kw_lower = kw.lower()
-        
-        # Skip very short keywords (like "er") unless they appear as complete words
-        if len(kw_lower) <= 2:
-            # Use word boundary matching for short keywords
+        # Si la keyword es 'api' o muy corta, solo cuenta si es palabra completa
+        if kw_lower == "api" or len(kw_lower) <= 2:
             pattern = r'\b' + re.escape(kw_lower) + r'\b'
             if re.search(pattern, low):
-                score += 0.5  # Lower score for very short keywords
+                score += 0.5 if len(kw_lower) <= 2 else 1.0
                 hits.append(kw)
         else:
-            # For longer keywords, use substring matching but with higher score
+            # Para keywords largas, substring + bonus si es palabra completa
             if kw_lower in low:
-                # Give higher score for longer, more specific keywords
                 keyword_weight = min(2.0, len(kw_lower) / 5.0)
                 score += keyword_weight
                 hits.append(kw)
-                
-                # Bonus for exact word matches
                 pattern = r'\b' + re.escape(kw_lower) + r'\b'
                 if re.search(pattern, low):
-                    score += 0.5  # Bonus for word boundary match
+                    score += 0.5
     
     return int(score), hits
 
