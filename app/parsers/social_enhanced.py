@@ -99,6 +99,23 @@ def _extract_direct_social_links(soup) -> Dict[str, str]:
             social_data["whatsapp"] = href
         elif ("telegram.me" in href_lower or "t.me" in href_lower) and "telegram" not in social_data:
             social_data["telegram"] = href
+        # Spanish and regional platforms
+        elif "flickr.com" in href_lower and "flickr" not in social_data:
+            social_data["flickr"] = href
+        elif "vimeo.com" in href_lower and "vimeo" not in social_data:
+            social_data["vimeo"] = href
+        elif "soundcloud.com" in href_lower and "soundcloud" not in social_data:
+            social_data["soundcloud"] = href
+        elif "spotify.com" in href_lower and "spotify" not in social_data:
+            social_data["spotify"] = href
+        elif "medium.com" in href_lower and "medium" not in social_data:
+            social_data["medium"] = href
+        elif "behance.net" in href_lower and "behance" not in social_data:
+            social_data["behance"] = href
+        elif "dribbble.com" in href_lower and "dribbble" not in social_data:
+            social_data["dribbble"] = href
+        elif "snapchat.com" in href_lower and "snapchat" not in social_data:
+            social_data["snapchat"] = href
     
     return social_data
 
@@ -126,6 +143,12 @@ def _extract_social_from_meta(soup) -> Dict[str, str]:
             social_data['linkedin'] = content
         elif 'youtube.com' in content_lower and 'youtube' not in social_data:
             social_data['youtube'] = content
+        elif 'tiktok.com' in content_lower and 'tiktok' not in social_data:
+            social_data['tiktok'] = content
+        elif 'github.com' in content_lower and 'github' not in social_data:
+            social_data['github'] = content
+        elif 'pinterest.com' in content_lower and 'pinterest' not in social_data:
+            social_data['pinterest'] = content
     
     return social_data
 

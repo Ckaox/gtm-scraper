@@ -1,4 +1,4 @@
-# app/app/parsers/industry.py
+# app/parsers/industry.py
 from typing import List, Dict, Tuple, Optional
 
 # ============================================================
@@ -116,7 +116,10 @@ INDUSTRIAS: Dict[str, List[str]] = {
         "tarjeta de credito", "tarjeta de crédito", "inversion", "inversión", "deposito", "depósito", "interes", "interés",
         "sucursal", "sucursales", "entidad financiera", "institucion financiera", "institución financiera",
         "bank", "banking", "loans", "mortgage", "checking account", "savings account", "atm", "financial services",
-        "credit card", "investment", "deposit", "interest rate", "financial institution", "commercial bank"
+        "credit card", "investment", "deposit", "interest rate", "financial institution", "commercial bank",
+        # Bancos españoles específicos
+        "santander", "bbva", "caixabank", "bankia", "sabadell", "bankinter", "unicaja", "ibercaja", "kutxabank",
+        "abanca", "banco popular", "banco pastor", "banesto", "banco madrid", "evo banco", "openbank"
     ],
     "Fintech y Pagos": [
         "fintech", "billetera", "billeteras", "pagos", "pago", "psp", "adquirencia", "pos", "qr", "wallet", "wallets",
@@ -443,7 +446,148 @@ def _score_text(text: str, keywords: List[str]) -> Tuple[int, List[str]]:
     
     return int(score), hits
 
-def detectar_industrias(texto: str, top_k: int = 2, min_score: int = 1) -> List[Dict[str, object]]:
+
+def _apply_domain_specific_rules(domain: str, texto: str, resultados: List[Dict]) -> List[Dict]:
+    """
+    Aplica reglas específicas basadas en el dominio para mejorar la precisión
+    """
+    domain_lower = domain.lower()
+    
+    # Reglas específicas para bancos españoles
+    banking_domains = [
+        'santander', 'bbva', 'caixabank', 'bankinter', 'sabadell', 'unicaja', 
+        'ibercaja', 'kutxabank', 'abanca', 'openbank', 'evo'
+    ]
+    
+    if any(bank in domain_lower for bank in banking_domains):
+        # Forzar clasificación bancaria si es un dominio bancario conocido
+        banking_score = 100  # Score muy alto para forzar
+        resultados.insert(0, {
+            "industria": "Servicios Financieros (Banca)", 
+            "score": banking_score, 
+            "keywords": ["domain_rule"]
+        })
+    
+    # Reglas para energía
+    energy_domains = ['endesa', 'iberdrola', 'naturgy', 'repsol', 'eon', 'edp']
+    if any(energy in domain_lower for energy in energy_domains):
+        energy_score = 100
+        resultados.insert(0, {
+            "industria": "Energía y Utilities", 
+            "score": energy_score, 
+            "keywords": ["domain_rule"]
+        })
+    
+    # Reglas para telecomunicaciones
+    telecom_domains = ['telefonica', 'vodafone', 'orange', 'movistar', 'jazztel']
+    if any(telecom in domain_lower for telecom in telecom_domains):
+        telecom_score = 100
+        resultados.insert(0, {
+            "industria": "Telecomunicaciones e ISP", 
+            "score": telecom_score, 
+            "keywords": ["domain_rule"]
+        })
+    
+    # Reglas para retail/fashion
+    retail_domains = ['zara', 'mango', 'inditex', 'corteingles', 'mercadona', 'carrefour']
+    if any(retail in domain_lower for retail in retail_domains):
+        retail_score = 100
+        resultados.insert(0, {
+            "industria": "Retail y E-commerce", 
+            "score": retail_score, 
+            "keywords": ["domain_rule"]
+        })
+    
+    # Reglas para medios
+    media_domains = ['atresmedia', 'mediaset', 'prisa', 'planeta']
+    if any(media in domain_lower for media in media_domains):
+        media_score = 100
+        resultados.insert(0, {
+            "industria": "Medios, Publicidad y Marketing", 
+            "score": media_score, 
+            "keywords": ["domain_rule"]
+        })
+    
+    return resultados
+
+
+def _detectar_industria_por_dominio(domain: str) -> Optional[str]:
+    """Mapeo directo de dominios conocidos a industrias"""
+    domain_mappings = {
+        # Bancos españoles
+        "santander.com": "Servicios Financieros (Banca)",
+        "bbva.com": "Servicios Financieros (Banca)",
+        "caixabank.es": "Servicios Financieros (Banca)",
+        "bankinter.com": "Servicios Financieros (Banca)",
+        "sabadell.com": "Servicios Financieros (Banca)",
+        "bankia.es": "Servicios Financieros (Banca)",
+        
+        # Energía españolas
+        "endesa.com": "Energía y Utilities",
+        "iberdrola.es": "Energía y Utilities",
+        "naturgy.com": "Energía y Utilities",
+        "repsol.com": "Energía y Utilities",
+        "cepsa.com": "Energía y Utilities",
+        
+        # Telecomunicaciones
+        "telefonica.com": "Telecomunicaciones e ISP",
+        "vodafone.es": "Telecomunicaciones e ISP",
+        "orange.es": "Telecomunicaciones e ISP",
+        "movistar.es": "Telecomunicaciones e ISP",
+        
+        # Retail/Fashion
+        "zara.com": "Retail y E-commerce",
+        "inditex.com": "Retail y E-commerce",
+        "elcorteingles.es": "Retail y E-commerce",
+        "mercadona.es": "Retail y E-commerce",
+        
+        # Medios
+        "atresmedia.com": "Medios, Publicidad y Marketing",
+        "mediaset.es": "Medios, Publicidad y Marketing",
+        
+        # Construcción
+        "acs.es": "Construcción e Inmobiliaria",
+        "ferrovial.com": "Construcción e Inmobiliaria",
+        
+        # Aerolíneas
+        "iberia.com": "Turismo y Viajes",
+        "vueling.com": "Turismo y Viajes",
+    }
+    
+    # Buscar coincidencia exacta
+    if domain in domain_mappings:
+        return domain_mappings[domain]
+    
+    # Buscar sin www
+    clean_domain = domain.replace("www.", "")
+    if clean_domain in domain_mappings:
+        return domain_mappings[clean_domain]
+    
+    return None
+
+
+def _apply_domain_specific_rules(domain: str, texto: str, resultados: List[Dict]) -> List[Dict]:
+    """Aplica reglas específicas basadas en el dominio"""
+    # Primero intentar mapeo directo
+    direct_industry = _detectar_industria_por_dominio(domain)
+    if direct_industry:
+        # Si encontramos mapeo directo, priorizarlo
+        for result in resultados:
+            if result["industria"] == direct_industry:
+                result["score"] += 10  # Boost significativo
+                break
+        else:
+            # Si no estaba en los resultados, agregarlo
+            resultados.append({
+                "industria": direct_industry,
+                "score": 15,  # Score alto para domain mapping
+                "keywords": ["domain_mapping"]
+            })
+    
+    return resultados
+
+
+def detectar_industrias(texto: str, domain: str = "", top_k: int = 2, min_score: int = 1) -> List[Dict[str, object]]:
     """
     Retorna una lista (máx top_k) de dicts:
     [
@@ -459,14 +603,20 @@ def detectar_industrias(texto: str, top_k: int = 2, min_score: int = 1) -> List[
         s, hits = _score_text(texto, kws)
         if s >= min_score:
             resultados.append({"industria": industria, "score": s, "keywords": hits})
+    
+    # Aplicar reglas específicas de dominio
+    if domain:
+        resultados = _apply_domain_specific_rules(domain, texto, resultados)
+    
     resultados.sort(key=lambda x: x["score"], reverse=True)
     return resultados[:top_k]
 
-def detectar_principal_y_secundaria(texto: str) -> Tuple[Optional[str], Optional[str]]:
+
+def detectar_principal_y_secundaria(texto: str, domain: str = "") -> Tuple[Optional[str], Optional[str]]:
     """
     Azúcar: devuelve (principal, secundaria) o (None, None).
     """
-    top = detectar_industrias(texto, top_k=2, min_score=1)
+    top = detectar_industrias(texto, domain, top_k=2, min_score=1)
     if not top:
         return None, None
     if len(top) == 1:

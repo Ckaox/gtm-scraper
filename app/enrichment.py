@@ -95,10 +95,10 @@ async def get_dns_intelligence(domain: str) -> Optional[Dict]:
     except Exception as e:
         return {"error": f"DNS lookup failed: {str(e)}"}
 
-async def get_google_knowledge_data(company_name: str, domain: str) -> Optional[Dict]:
+async def get_business_intelligence(domain: str, company_name: str) -> Optional[Dict]:
     """
     Business Intelligence - Análisis avanzado de empresa (300-900ms)
-    Extrae información valiosa para outbound sales
+    Extrae información valiosa para outbound sales con algoritmos mejorados
     """
     try:
         start = time.time()
@@ -112,128 +112,263 @@ async def get_google_knowledge_data(company_name: str, domain: str) -> Optional[
                 # Simular API call
                 await asyncio.sleep(0.4)
                 
-                # Detección inteligente de business type y industry vertical
+                # ALGORITMO MEJORADO DE DETECCIÓN DE BUSINESS TYPE
                 business_type = "Unknown"
                 industry_vertical = "Unknown"
                 location = "Unknown"
                 revenue_estimate = "Unknown"
-                employee_count_estimate = "Unknown"
+                employee_count_estimate = 0
+                confidence_score = 0
                 
-                # Technology & Software
-                if any(word in domain_lower for word in ["github", "git", "dev", "api", "tech", "software", "saas"]):
+                # 1. TECHNOLOGY & SOFTWARE (mejorado)
+                tech_keywords = ["github", "git", "dev", "api", "tech", "software", "saas", "cloud", "platform", "app", "code", "digital", "ai", "ml", "data"]
+                if any(word in domain_lower for word in tech_keywords) or any(word in company_lower for word in tech_keywords):
                     business_type = "Technology"
                     industry_vertical = "Software Development"
-                    if "github" in company_lower:
+                    confidence_score += 30
+                    
+                    # Subcategorización más específica
+                    if any(word in company_lower for word in ["microsoft", "google", "apple", "amazon", "meta", "tesla"]):
+                        business_type = "Big Tech"
+                        industry_vertical = "Technology Platform"
+                        revenue_estimate = "$100B+"
+                        employee_count_estimate = 50000
+                        confidence_score = 95
+                    elif any(word in domain_lower for word in ["github", "gitlab", "bitbucket"]):
+                        business_type = "DevTools Platform"
                         revenue_estimate = "$1B+"
-                        employee_count_estimate = "1000+"
-                elif any(word in company_lower for word in ["microsoft", "google", "apple", "amazon"]):
-                    business_type = "Big Tech"
-                    industry_vertical = "Technology Platform"
-                    revenue_estimate = "$100B+"
-                    employee_count_estimate = "50000+"
-                
-                # E-commerce & Retail
-                elif any(word in domain_lower for word in ["shop", "store", "buy", "cart", "ecommerce", "retail"]):
-                    business_type = "E-commerce"
-                    industry_vertical = "Online Retail"
-                    if "shopify" in company_lower:
-                        business_type = "E-commerce Platform"
-                        revenue_estimate = "$5B+"
-                        employee_count_estimate = "10000+"
+                        employee_count_estimate = 2000
+                        confidence_score = 90
+                    elif "saas" in domain_lower or "platform" in domain_lower:
+                        business_type = "SaaS Platform"
+                        revenue_estimate = "$50M-500M"
+                        employee_count_estimate = 500
+                        confidence_score = 80
                     else:
                         revenue_estimate = "$10M-100M"
-                        employee_count_estimate = "50-500"
+                        employee_count_estimate = 100
                 
-                # Media & Entertainment
-                elif any(word in domain_lower for word in ["netflix", "video", "stream", "media", "tv", "entertainment"]):
+                # 2. E-COMMERCE & RETAIL (mejorado)
+                ecommerce_keywords = ["shop", "store", "buy", "cart", "ecommerce", "retail", "fashion", "clothes", "tienda", "comprar", "moda", "venta"]
+                if any(word in domain_lower for word in ecommerce_keywords) or any(word in company_lower for word in ecommerce_keywords):
+                    business_type = "E-commerce"
+                    industry_vertical = "Online Retail"
+                    confidence_score += 25
+                    
+                    # Subcategorización por tamaño y tipo
+                    if any(word in company_lower for word in ["amazon", "alibaba", "shopify", "mercadolibre"]):
+                        business_type = "E-commerce Giant"
+                        revenue_estimate = "$10B+"
+                        employee_count_estimate = 10000
+                        confidence_score = 95
+                    elif any(word in domain_lower for word in ["fashion", "moda", "clothes", "ropa"]):
+                        business_type = "Fashion E-commerce"
+                        revenue_estimate = "$5M-50M"
+                        employee_count_estimate = 100
+                        confidence_score = 85
+                    elif "marketplace" in domain_lower:
+                        business_type = "Marketplace"
+                        revenue_estimate = "$25M-250M"
+                        employee_count_estimate = 300
+                        confidence_score = 80
+                    else:
+                        revenue_estimate = "$1M-25M"
+                        employee_count_estimate = 50
+                
+                # 3. MEDIA & ENTERTAINMENT (mejorado)
+                media_keywords = ["netflix", "video", "stream", "media", "tv", "entertainment", "music", "game", "sport", "news", "radio"]
+                if any(word in domain_lower for word in media_keywords) or any(word in company_lower for word in media_keywords):
                     business_type = "Media & Entertainment"
-                    industry_vertical = "Streaming/Content"
-                    if "netflix" in company_lower:
+                    industry_vertical = "Content & Streaming"
+                    confidence_score += 25
+                    
+                    if any(word in company_lower for word in ["netflix", "disney", "warner", "universal"]):
                         revenue_estimate = "$30B+"
-                        employee_count_estimate = "10000+"
+                        employee_count_estimate = 15000
+                        confidence_score = 95
+                    elif "stream" in domain_lower:
+                        revenue_estimate = "$100M-1B"
+                        employee_count_estimate = 1000
+                        confidence_score = 80
+                    else:
+                        revenue_estimate = "$10M-100M"
+                        employee_count_estimate = 200
                 
-                # Financial Services
-                elif any(word in domain_lower for word in ["bank", "pay", "finance", "crypto", "wallet", "fintech"]):
+                # 4. AUTOMOTIVE (nuevo)
+                auto_keywords = ["auto", "car", "vehicle", "motor", "drive", "automotive", "ford", "bmw", "mercedes", "audi", "toyota", "coche"]
+                if any(word in domain_lower for word in auto_keywords) or any(word in company_lower for word in auto_keywords):
+                    business_type = "Automotive"
+                    industry_vertical = "Automotive Manufacturing"
+                    confidence_score += 30
+                    
+                    if any(word in company_lower for word in ["ford", "toyota", "volkswagen", "gm", "bmw", "mercedes", "audi"]):
+                        business_type = "Automotive OEM"
+                        revenue_estimate = "$50B+"
+                        employee_count_estimate = 100000
+                        confidence_score = 95
+                    elif "electric" in domain_lower or "tesla" in company_lower:
+                        business_type = "Electric Vehicle"
+                        revenue_estimate = "$10B+"
+                        employee_count_estimate = 50000
+                        confidence_score = 90
+                    else:
+                        revenue_estimate = "$500M-5B"
+                        employee_count_estimate = 5000
+                
+                # 5. FINANCIAL SERVICES (nuevo)
+                fintech_keywords = ["bank", "finance", "fintech", "payment", "crypto", "invest", "trading", "insurance", "credit", "loan"]
+                if any(word in domain_lower for word in fintech_keywords) or any(word in company_lower for word in fintech_keywords):
                     business_type = "Financial Services"
-                    industry_vertical = "Fintech"
-                    revenue_estimate = "$100M-1B"
-                    employee_count_estimate = "500-5000"
+                    industry_vertical = "FinTech"
+                    confidence_score += 35
+                    
+                    if any(word in company_lower for word in ["jpmorgan", "goldman", "morgan stanley", "blackrock"]):
+                        revenue_estimate = "$100B+"
+                        employee_count_estimate = 50000
+                        confidence_score = 95
+                    elif "crypto" in domain_lower or "blockchain" in domain_lower:
+                        business_type = "Crypto/Blockchain"
+                        revenue_estimate = "$100M-1B"
+                        employee_count_estimate = 500
+                        confidence_score = 85
+                    else:
+                        revenue_estimate = "$50M-500M"
+                        employee_count_estimate = 1000
                 
-                # Sports & Entertainment
-                elif any(word in domain_lower for word in ["real", "madrid", "barcelona", "sports", "football", "soccer"]):
-                    business_type = "Sports Organization"
-                    industry_vertical = "Professional Sports"
-                    if any(club in domain_lower for club in ["realmadrid", "fcbarcelona", "arsenal", "manchester"]):
-                        revenue_estimate = "$500M+"
-                        employee_count_estimate = "500+"
+                # 6. HEALTHCARE & PHARMA (nuevo)
+                health_keywords = ["health", "medical", "pharma", "hospital", "clinic", "medicine", "bio", "drug", "patient"]
+                if any(word in domain_lower for word in health_keywords) or any(word in company_lower for word in health_keywords):
+                    business_type = "Healthcare"
+                    industry_vertical = "Healthcare & Medical"
+                    confidence_score += 30
+                    
+                    if any(word in company_lower for word in ["pfizer", "johnson", "novartis", "roche"]):
+                        revenue_estimate = "$50B+"
+                        employee_count_estimate = 100000
+                        confidence_score = 95
+                    else:
+                        revenue_estimate = "$25M-250M"
+                        employee_count_estimate = 500
                 
-                # Hotel & Hospitality
-                elif any(word in domain_lower for word in ["hotel", "resort", "booking", "stay", "hospitality"]):
-                    business_type = "Hospitality"
-                    industry_vertical = "Hotels & Travel"
-                    revenue_estimate = "$50M-500M"
-                    employee_count_estimate = "200-2000"
-                    if any(x in domain for x in [".es", "valencia", "madrid", "barcelona"]):
-                        location = "Spain"
-                
-                # Manufacturing & Industrial
-                elif any(word in domain_lower for word in ["acrylic", "paint", "manufacturing", "industrial", "factory"]):
-                    business_type = "Manufacturing"
-                    industry_vertical = "Industrial Manufacturing"
-                    revenue_estimate = "$25M-250M"
-                    employee_count_estimate = "100-1000"
-                
-                # Marketing & Growth
-                elif any(word in domain_lower for word in ["marketing", "growth", "reach", "campaign", "advertising"]):
-                    business_type = "Marketing Technology"
-                    industry_vertical = "MarTech/AdTech"
+                # 7. REAL ESTATE (nuevo)
+                realestate_keywords = ["real estate", "property", "inmobiliaria", "housing", "rental", "apartment", "office"]
+                if any(word in domain_lower for word in realestate_keywords) or any(word in company_lower for word in realestate_keywords):
+                    business_type = "Real Estate"
+                    industry_vertical = "Property & Real Estate"
+                    confidence_score += 25
                     revenue_estimate = "$10M-100M"
-                    employee_count_estimate = "50-500"
+                    employee_count_estimate = 200
                 
-                # Location detection improvements
-                if location == "Unknown":
-                    if any(x in domain for x in [".es"]):
+                # 8. EDUCATION (nuevo)
+                education_keywords = ["education", "university", "school", "learn", "course", "training", "academic"]
+                if any(word in domain_lower for word in education_keywords) or any(word in company_lower for word in education_keywords):
+                    business_type = "Education"
+                    industry_vertical = "EdTech & Learning"
+                    confidence_score += 25
+                    revenue_estimate = "$5M-50M"
+                    employee_count_estimate = 150
+                
+                # DETECCIÓN DE UBICACIÓN MEJORADA
+                if ".es" in domain:
+                    location = "Spain"
+                    confidence_score += 10
+                    # Ajustar estimates para mercado español
+                    if revenue_estimate == "$1M-25M":
+                        revenue_estimate = "€1M-20M"
+                    elif revenue_estimate == "$10M-100M":
+                        revenue_estimate = "€8M-80M"
+                elif ".mx" in domain:
+                    location = "Mexico"
+                elif ".ar" in domain:
+                    location = "Argentina"
+                elif ".co" in domain:
+                    location = "Colombia"
+                elif ".uk" in domain or ".co.uk" in domain:
+                    location = "United Kingdom"
+                elif ".de" in domain:
+                    location = "Germany"
+                elif ".fr" in domain:
+                    location = "France"
+                elif ".it" in domain:
+                    location = "Italy"
+                elif any(x in domain for x in [".com", ".org", ".net"]):
+                    # Inferir por nombre de empresa o señales
+                    if any(word in company_lower for word in ["madrid", "barcelona", "valencia", "sevilla", "bilbao"]):
                         location = "Spain"
-                    elif any(x in domain for x in [".mx"]):
-                        location = "Mexico"
-                    elif any(x in domain for x in [".ar"]):
-                        location = "Argentina"
-                    elif any(x in domain for x in [".co"]):
-                        location = "Colombia"
-                    elif any(x in domain for x in [".uk", ".co.uk"]):
-                        location = "United Kingdom"
-                    elif any(x in domain for x in [".de"]):
-                        location = "Germany"
-                    elif any(x in domain for x in [".fr"]):
-                        location = "France"
-                    elif any(x in domain for x in [".com", ".org", ".net"]):
-                        # Try to infer from company name or other signals
-                        if any(word in company_lower for word in ["madrid", "barcelona", "valencia"]):
-                            location = "Spain"
-                        elif business_type == "Big Tech":
-                            location = "United States"
-                        else:
-                            location = "Global"
+                        confidence_score += 5
+                    elif business_type == "Big Tech":
+                        location = "United States"
+                    else:
+                        location = "Global"
                 
-                # Sales intelligence scoring
-                sales_potential = "Medium"
-                if revenue_estimate in ["$1B+", "$5B+", "$30B+", "$100B+"]:
+                # ALGORITMO DE SALES POTENTIAL MEJORADO
+                sales_potential_score = 0
+                
+                # Factor 1: Revenue (40% weight)
+                if revenue_estimate in ["$100B+", "€80M+"]:
+                    sales_potential_score += 40
+                elif revenue_estimate in ["$50B+", "$30B+", "$10B+", "$5B+", "$1B+"]:
+                    sales_potential_score += 35
+                elif revenue_estimate in ["$500M-5B", "$100M-1B", "$50M-500M"]:
+                    sales_potential_score += 30
+                elif revenue_estimate in ["$25M-250M", "€8M-80M"]:
+                    sales_potential_score += 20
+                elif revenue_estimate in ["$10M-100M", "$5M-50M", "€1M-20M"]:
+                    sales_potential_score += 15
+                else:
+                    sales_potential_score += 5
+                
+                # Factor 2: Employee Count (30% weight)
+                if employee_count_estimate >= 10000:
+                    sales_potential_score += 30
+                elif employee_count_estimate >= 1000:
+                    sales_potential_score += 25
+                elif employee_count_estimate >= 500:
+                    sales_potential_score += 20
+                elif employee_count_estimate >= 100:
+                    sales_potential_score += 15
+                elif employee_count_estimate >= 50:
+                    sales_potential_score += 10
+                else:
+                    sales_potential_score += 5
+                
+                # Factor 3: Industry Type (20% weight)
+                high_value_industries = ["Technology", "Financial Services", "Healthcare"]
+                medium_value_industries = ["E-commerce", "Automotive", "Media & Entertainment"]
+                if business_type in high_value_industries:
+                    sales_potential_score += 20
+                elif business_type in medium_value_industries:
+                    sales_potential_score += 15
+                else:
+                    sales_potential_score += 10
+                
+                # Factor 4: Confidence (10% weight)
+                sales_potential_score += min(confidence_score * 0.1, 10)
+                
+                # Convertir score a categoría
+                if sales_potential_score >= 80:
+                    sales_potential = "Very High"
+                elif sales_potential_score >= 65:
                     sales_potential = "High"
-                elif revenue_estimate in ["$100M-1B", "$500M+"]:
-                    sales_potential = "High"
-                elif revenue_estimate in ["$50M-500M", "$25M-250M"]:
+                elif sales_potential_score >= 45:
                     sales_potential = "Medium"
-                else:
+                elif sales_potential_score >= 25:
                     sales_potential = "Low"
-                
-                # Decision maker likelihood
-                decision_maker_access = "Medium"
-                if employee_count_estimate in ["50-500", "100-1000"]:
-                    decision_maker_access = "High"
-                elif employee_count_estimate in ["500-5000", "500+"]:
-                    decision_maker_access = "Medium"
                 else:
-                    decision_maker_access = "Low"
+                    sales_potential = "Very Low"
+                
+                # DECISION MAKER ACCESS MEJORADO
+                if employee_count_estimate <= 200:
+                    decision_maker_access = "High"  # Fácil acceso en empresas pequeñas
+                elif employee_count_estimate <= 1000:
+                    decision_maker_access = "Medium"  # Acceso moderado en medianas
+                elif employee_count_estimate <= 10000:
+                    decision_maker_access = "Low"  # Difícil en grandes
+                else:
+                    decision_maker_access = "Very Low"  # Muy difícil en gigantes
+                
+                # CONFIDENCE FINAL
+                final_confidence = "High" if confidence_score >= 70 else "Medium" if confidence_score >= 40 else "Low"
                 
                 result = {
                     "verified_business": True,
@@ -243,18 +378,47 @@ async def get_google_knowledge_data(company_name: str, domain: str) -> Optional[
                     "estimated_revenue": revenue_estimate,
                     "estimated_employees": employee_count_estimate,
                     "sales_potential": sales_potential,
+                    "sales_potential_score": sales_potential_score,
                     "decision_maker_access": decision_maker_access,
-                    "confidence": "High" if business_type != "Unknown" else "Medium",
+                    "confidence": final_confidence,
+                    "confidence_score": confidence_score,
                     "response_time_ms": int((time.time() - start) * 1000)
                 }
                 
                 return result
                 
-            except asyncio.TimeoutError:
-                return {"error": "Google Knowledge timeout", "response_time_ms": 1500}
+            except Exception as api_error:
+                print(f"Business Intelligence API error: {api_error}")
+                return {
+                    "verified_business": False,
+                    "business_type": "Unknown",
+                    "confidence": "Low",
+                    "error": str(api_error),
+                    "response_time_ms": int((time.time() - start) * 1000)
+                }
                 
     except Exception as e:
-        return {"error": f"Knowledge Graph failed: {str(e)}"}
+        print(f"Business Intelligence error: {e}")
+        return None
+
+
+async def get_google_knowledge_data(company_name: str, domain: str) -> Optional[Dict]:
+    """
+    Google Knowledge Graph simulation - Basic company info
+    Placeholder for future Knowledge Graph integration
+    """
+    try:
+        # Simple simulation based on domain and company name
+        return {
+            "knowledge_source": "simulated",
+            "company_name": company_name,
+            "domain": domain,
+            "confidence": "medium"
+        }
+    except Exception as e:
+        print(f"Google Knowledge error: {e}")
+        return None
+
 
 async def get_google_maps_business_data(company_name: str, location_hint: str = "") -> Optional[Dict]:
     """

@@ -67,11 +67,11 @@ _domain_cache = {}
 def smart_domain_resolver(domain: str, timeout: int = 5) -> str:
     """
     Resuelve automáticamente la mejor URL para un dominio probando variaciones.
-    OPTIMIZADO con CACHE para reducir tiempo de resolución repetida.
+    MEJORADO para manejar más casos y aumentar success rate.
     
     Args:
         domain: Dominio a resolver (ej: "kaioland.com")
-        timeout: Timeout para cada prueba (reducido a 5s)
+        timeout: Timeout para cada prueba
         
     Returns:
         La mejor URL que funciona, o la URL original si ninguna funciona
@@ -88,16 +88,35 @@ def smart_domain_resolver(domain: str, timeout: int = 5) -> str:
     else:
         clean_domain = domain.strip().replace("http://", "").replace("https://", "").rstrip("/")
     
-    # OPTIMIZACIÓN: Solo 2 variaciones principales para velocidad
+    # MEJORA: Más variaciones inteligentes para aumentar success rate
+    variations = []
+    
     if clean_domain.startswith("www."):
-        # Si ya tiene www, solo prueba con www
-        variations = [f"https://{clean_domain}"]
-    else:
-        # Si no tiene www, prueba sin www primero, luego con www
+        base_domain = clean_domain[4:]  # Remove www.
         variations = [
-            f"https://{clean_domain}",
-            f"https://www.{clean_domain}"
+            f"https://{clean_domain}",          # Original con www
+            f"https://{base_domain}",           # Sin www
         ]
+    else:
+        base_domain = clean_domain
+        variations = [
+            f"https://{clean_domain}",          # Original sin www
+            f"https://www.{clean_domain}",      # Con www
+        ]
+    
+    # MEJORA: Agregar variaciones de TLD para empresas españolas
+    if clean_domain.endswith('.com'):
+        base_name = clean_domain[:-4]  # Remove .com
+        variations.extend([
+            f"https://{base_name}.es",          # .es para España
+            f"https://www.{base_name}.es",      # www + .es
+        ])
+    elif clean_domain.endswith('.es'):
+        base_name = clean_domain[:-3]  # Remove .es
+        variations.extend([
+            f"https://{base_name}.com",         # .com global
+            f"https://www.{base_name}.com",     # www + .com
+        ])
     
     # Probar cada variación con timeout ultra-agresivo
     for url in variations:

@@ -30,11 +30,20 @@ logger = logging.getLogger(__name__)
 
 
 # ===========================
-# Config rápida (tuning perf) - FINAL OPTIMIZATION
+# Config optimizada (performance final)
 # ===========================
-MAX_INTERNAL_LINKS = 60           # Reducido aún más: 80→60
-TOP_CANDIDATES_BY_KEYWORD = 8     # Reducido aún más: 10→8  
-MAX_PAGES_FREE_PLAN = 3           # Reducido aún más: 4→3
+MAX_INTERNAL_LINKS = 40           # Reducido más: 60→40
+TOP_CANDIDATES_BY_KEYWORD = 6     # Reducido más: 8→6  
+MAX_PAGES_FREE_PLAN = 2           # Reducido más: 3→2
+TIMEOUT_ULTRA_FAST = 1.5          # Reducido de 2s
+TIMEOUT_FAST = 3                  # Reducido de 5s
+TIMEOUT_NORMAL = 6                # Reducido de 8s
+TIMEOUT_PATIENT = 10              # NUEVO: Para sitios pesados
+TIMEOUT_LAST_RESORT = 15          # NUEVO: Último intento
+
+# Cache simple para resolución de dominios
+_domain_cache = {}
+_cache_max_size = 100
 
 
 # ---------------------------
@@ -130,7 +139,18 @@ async def scan(req: ScanRequest):
         print(f"🔍 Resolviendo dominio {req.domain}")
         
         try:
-            base = smart_domain_resolver(req.domain, timeout=3)  # Timeout más agresivo
+            # Check cache first
+            if req.domain in _domain_cache:
+                base = _domain_cache[req.domain]
+                print(f"✅ Cache hit para {req.domain} -> {base}")
+            else:
+                base = smart_domain_resolver(req.domain, timeout=2)  # Timeout aún más agresivo
+                # Add to cache
+                if len(_domain_cache) >= _cache_max_size:
+                    # Simple LRU: remove first item
+                    _domain_cache.pop(next(iter(_domain_cache)))
+                _domain_cache[req.domain] = base
+                
             timings["domain_resolution"] = time.time() - step_start
             print(f"✅ Dominio resuelto a {base} en {timings['domain_resolution']:.2f}s")
         except Exception as e:
@@ -148,9 +168,11 @@ async def scan(req: ScanRequest):
         
         home_html = None
         fetch_attempts = [
-            {"timeout": 2, "name": "ultra-fast"},
-            {"timeout": 5, "name": "fast"}, 
-            {"timeout": 8, "name": "normal"}
+            {"timeout": TIMEOUT_ULTRA_FAST, "name": "ultra-fast"},
+            {"timeout": TIMEOUT_FAST, "name": "fast"}, 
+            {"timeout": TIMEOUT_NORMAL, "name": "normal"},
+            {"timeout": TIMEOUT_PATIENT, "name": "patient"},
+            {"timeout": TIMEOUT_LAST_RESORT, "name": "last-resort"}
         ]
         
         for i, attempt in enumerate(fetch_attempts):
@@ -208,13 +230,14 @@ async def scan(req: ScanRequest):
             if company_name:
                 texto_optimizado += " " + company_name.lower()
             
-            principal, secundaria = detectar_principal_y_secundaria(texto_optimizado)
+            principal, secundaria = detectar_principal_y_secundaria(texto_optimizado, req.domain)
             timings["industry_detection"] = time.time() - step_start
             print(f"🏭 Industry: '{principal}' en {timings['industry_detection']:.3f}s")
         except Exception as e:
             principal = "No determinada"
             secundaria = None
             error_details.append(f"Industry detection failed: {str(e)}")
+            print(f"❌ Industry Detection Error: {str(e)}")
             timings["industry_detection"] = time.time() - step_start
 
         # 💻 ETAPA 5: TECH STACK DETECTION OPTIMIZADA
@@ -248,7 +271,7 @@ async def scan(req: ScanRequest):
             error_details.append(f"Tech stack detection failed: {str(e)}")
             timings["tech_stack"] = time.time() - step_start
 
-        # 🔗 ETAPA 6: PÁGINAS ADICIONALES (SOLO SI ES NECESARIO)
+        # 🔗 ETAPA 6: PÁGINAS ADICIONALES (ULTRA-OPTIMIZADO)
         step_start = time.time()
         additional_pages = []
         social = {}
@@ -256,35 +279,37 @@ async def scan(req: ScanRequest):
         news_items = []
         
         # Solo buscar páginas adicionales si el request lo permite y tenemos tiempo
-        if req.max_pages > 1 and timings.get("html_fetch", 0) < 5:  # Solo si el fetch fue rápido
+        if req.max_pages > 1 and timings.get("html_fetch", 0) < 3:  # Aún más agresivo: 5→3
             try:
-                # Discovery limitado
-                links = extract_internal_links(base, home_html, max_links=30)  # Reducido de 60
+                # Discovery ultra-limitado
+                links = extract_internal_links(base, home_html, max_links=MAX_INTERNAL_LINKS)  # Usa config
                 scored = [(keyword_score(httpx.URL(u).path), u) for u in links if not looks_blocklisted(u)]
                 scored.sort(reverse=True, key=lambda x: x[0])
                 
-                candidates = [base] + [u for _, u in scored[:5]]  # Solo top 5
-                max_pages = min(req.max_pages, 3)  # Máximo 3 páginas total
+                candidates = [base] + [u for _, u in scored[:TOP_CANDIDATES_BY_KEYWORD]]  # Usa config
+                max_pages = min(req.max_pages, MAX_PAGES_FREE_PLAN)  # Usa config
                 candidates = candidates[:max_pages]
                 
-                # Fetch adicional con timeout corto
-                fetched = await fetch_many(candidates, respect_robots=req.respect_robots, timeout=5)
+                # Fetch adicional con timeout muy corto
+                fetched = await fetch_many(candidates, respect_robots=req.respect_robots, timeout=TIMEOUT_FAST)  # Usa config
                 
                 for final_url, html in fetched:
                     if html and final_url != base:
                         additional_pages.append(final_url)
                         
-                        # Extracciones limitadas
+                        # Extracciones ultra-limitadas para no perder tiempo
                         if len(social) < 2:
                             s = _socials_from_html(html)
                             social.update({k: v for k, v in s.items() if k not in social})
                         
-                        if len(emails) < 3:
+                        if len(emails) < 2:  # Reducido de 3 a 2
                             page_emails = extract_emails(html)
-                            emails.extend(page_emails[:2])
+                            emails.extend(page_emails[:1])  # Solo 1 email por página
                             
             except Exception as e:
                 error_details.append(f"Additional pages processing failed: {str(e)}")
+        else:
+            print(f"⏩ Saltando páginas adicionales (fetch time: {timings.get('html_fetch', 0):.2f}s)")
         
         timings["additional_processing"] = time.time() - step_start
 
