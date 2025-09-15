@@ -110,6 +110,140 @@ async def get_http_client(domain: str) -> httpx.AsyncClient:
 
 
 # ===========================
+# AUTO-BATCHING SYSTEM (para Clay y requests múltiples)
+# ===========================
+
+# Sistema de cola para auto-batching
+_pending_requests: List[Dict[str, Any]] = []
+_batch_timer_active = False
+_batch_lock = asyncio.Lock()
+
+# Configuración de auto-batching
+AUTO_BATCH_WAIT_TIME = 0.5  # Esperar 500ms para agrupar requests
+AUTO_BATCH_MAX_SIZE = 15    # Máximo 15 dominios por batch automático
+AUTO_BATCH_MIN_SIZE = 2     # Mínimo 2 para hacer batch
+
+async def _process_pending_batch():
+    """Procesa el batch pendiente de requests agrupados"""
+    global _pending_requests, _batch_timer_active
+    
+    async with _batch_lock:
+        if not _pending_requests:
+            _batch_timer_active = False
+            return
+        
+        # Tomar requests pendientes
+        current_requests = _pending_requests.copy()
+        _pending_requests.clear()
+        _batch_timer_active = False
+        
+        if len(current_requests) < AUTO_BATCH_MIN_SIZE:
+            # Muy pocos, procesar individualmente
+            for req_info in current_requests:
+                try:
+                    result = await _single_scan(req_info["request"])
+                    req_info["future"].set_result(UnifiedScanResponse(
+                        scan_type="single",
+                        single_result=result
+                    ))
+                except Exception as e:
+                    req_info["future"].set_exception(e)
+        else:
+            # Suficientes para batch, agrupar por dominio
+            domains = [req_info["request"].domain for req_info in current_requests]
+            
+            try:
+                # Procesar como batch
+                batch_result = await _batch_scan(domains)
+                
+                # Distribuir resultados a cada future individual
+                for req_info in current_requests:
+                    domain = req_info["request"].domain
+                    
+                    # Buscar resultado para este dominio en el batch
+                    if (batch_result.batch_result and 
+                        domain in batch_result.batch_result.results):
+                        
+                        domain_result = batch_result.batch_result.results[domain]
+                        
+                        if domain_result.get("success"):
+                            # Convertir resultado de batch a formato single
+                            single_response = ScanResponse(
+                                domain=domain,
+                                company_name=domain_result.get("data", {}).get("company_name"),
+                                context=ContextBlock(summary=domain_result.get("data", {}).get("context_summary")),
+                                industry=domain_result.get("data", {}).get("industry"),
+                                industry_secondary=domain_result.get("data", {}).get("industry_secondary"),
+                                tech_stack={},
+                                social={},
+                                pages_crawled=[domain],
+                                recent_news=[]
+                            )
+                            
+                            req_info["future"].set_result(UnifiedScanResponse(
+                                scan_type="single",
+                                single_result=single_response
+                            ))
+                        else:
+                            # Error en el dominio específico
+                            req_info["future"].set_exception(
+                                HTTPException(status_code=500, detail=domain_result.get("error", "Scan failed"))
+                            )
+                    else:
+                        # Dominio no encontrado en resultados
+                        req_info["future"].set_exception(
+                            HTTPException(status_code=500, detail="Domain not found in batch results")
+                        )
+                        
+            except Exception as e:
+                # Error en todo el batch, fallar todos los requests
+                for req_info in current_requests:
+                    req_info["future"].set_exception(e)
+
+async def _maybe_auto_batch(request: ScanRequest) -> UnifiedScanResponse:
+    """Decide si agrupar el request o procesarlo inmediatamente"""
+    global _pending_requests, _batch_timer_active
+    
+    # Solo hacer auto-batch para requests de dominio único
+    if not request.domain or request.domains:
+        if request.domains:
+            return await _batch_scan(request.domains)
+        else:
+            result = await _single_scan(request)
+            return UnifiedScanResponse(scan_type="single", single_result=result)
+    
+    async with _batch_lock:
+        # Crear future para este request
+        future = asyncio.Future()
+        
+        # Agregar a la cola
+        _pending_requests.append({
+            "request": request,
+            "future": future,
+            "timestamp": time.time()
+        })
+        
+        # Si es el primer request o no hay timer activo, iniciar timer
+        if not _batch_timer_active:
+            _batch_timer_active = True
+            
+            # Programar procesamiento del batch
+            asyncio.create_task(_wait_and_process_batch())
+        
+        # Si ya tenemos suficientes requests, procesar inmediatamente
+        if len(_pending_requests) >= AUTO_BATCH_MAX_SIZE:
+            asyncio.create_task(_process_pending_batch())
+    
+    # Esperar resultado
+    return await future
+
+async def _wait_and_process_batch():
+    """Espera el tiempo de auto-batch y luego procesa"""
+    await asyncio.sleep(AUTO_BATCH_WAIT_TIME)
+    await _process_pending_batch()
+
+
+# ===========================
 # Config optimizada (performance final)
 # ===========================
 MAX_INTERNAL_LINKS = 40           # Reducido más: 60→40
@@ -202,8 +336,9 @@ def health():
 @app.post("/scan", response_model=UnifiedScanResponse, summary="Escanear información de empresa (único o múltiple)")
 async def scan(req: ScanRequest):
     """
-    ESCÁNER UNIFICADO ULTRA-OPTIMIZADO:
+    ESCÁNER UNIFICADO ULTRA-OPTIMIZADO CON AUTO-BATCHING:
     - Soporta escaneo único (domain) o múltiple (domains)
+    - Auto-batching inteligente para requests simultáneos (perfecto para Clay)
     - Timeouts escalonados inteligentes  
     - Configuración adaptativa para recursos limitados
     - Cache de domain resolution
@@ -211,19 +346,8 @@ async def scan(req: ScanRequest):
     - Optimizado para 0.1 CPU + 512MB RAM
     """
     
-    # Determinar tipo de escaneo
-    if req.domains:
-        # ESCANEO MÚLTIPLE (PARALELO)
-        return await _batch_scan(req.domains)
-    elif req.domain:
-        # ESCANEO ÚNICO
-        result = await _single_scan(req)
-        return UnifiedScanResponse(
-            scan_type="single",
-            single_result=result
-        )
-    else:
-        raise HTTPException(status_code=400, detail="Must provide either 'domain' or 'domains'")
+    # Usar sistema de auto-batching que detecta múltiples requests simultáneos
+    return await _maybe_auto_batch(req)
 
 
 async def _batch_scan(domains: List[str]) -> UnifiedScanResponse:
