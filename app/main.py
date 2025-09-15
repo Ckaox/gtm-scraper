@@ -1,5 +1,5 @@
 # app/app/main.py
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from typing import List, Dict, Any
 from bs4 import BeautifulSoup
 import httpx
@@ -30,16 +30,96 @@ logger = logging.getLogger(__name__)
 
 
 # ===========================
+# Adaptive Resource Configuration
+# ===========================
+import os
+import asyncio
+from typing import Dict, Any
+
+def get_system_resources() -> Dict[str, Any]:
+    """Detecta los recursos del sistema basado en variables de entorno y límites de contenedor"""
+    # Intentar detectar límites de CPU
+    try:
+        cpu_limit = float(os.environ.get('CPU_LIMIT', '1.0'))
+    except:
+        cpu_limit = 1.0
+    
+    # Intentar detectar límites de memoria en MB
+    try:
+        memory_limit = int(os.environ.get('MEMORY_LIMIT_MB', '1024'))
+    except:
+        memory_limit = 1024
+    
+    # Determinar perfil de recursos
+    if cpu_limit <= 0.2 and memory_limit <= 600:
+        profile = "low"  # 0.1 CPU, 512MB
+        concurrent_domains = 2
+        timeout_multiplier = 1.5
+        batch_size = 1
+    elif cpu_limit <= 0.6 and memory_limit <= 1200:
+        profile = "medium"  # 0.5 CPU, 1GB
+        concurrent_domains = 4
+        timeout_multiplier = 1.2
+        batch_size = 2
+    else:
+        profile = "high"  # Más recursos
+        concurrent_domains = 8
+        timeout_multiplier = 1.0
+        batch_size = 4
+    
+    return {
+        "profile": profile,
+        "cpu_limit": cpu_limit,
+        "memory_limit_mb": memory_limit,
+        "concurrent_domains": concurrent_domains,
+        "timeout_multiplier": timeout_multiplier,
+        "batch_size": batch_size
+    }
+
+# Sistema de configuración adaptativa
+SYSTEM_CONFIG = get_system_resources()
+logger.info(f"Resource profile detected: {SYSTEM_CONFIG['profile']} "
+           f"(CPU: {SYSTEM_CONFIG['cpu_limit']}, RAM: {SYSTEM_CONFIG['memory_limit_mb']}MB)")
+
+# Semáforo global para controlar concurrencia
+_global_semaphore = asyncio.Semaphore(SYSTEM_CONFIG["concurrent_domains"])
+
+# Pool de clientes HTTP reutilizable
+_http_clients: Dict[str, httpx.AsyncClient] = {}
+
+async def get_http_client(domain: str) -> httpx.AsyncClient:
+    """Obtiene o crea un cliente HTTP reutilizable para el dominio"""
+    if domain not in _http_clients:
+        _http_clients[domain] = httpx.AsyncClient(
+            timeout=httpx.Timeout(
+                connect=10 * SYSTEM_CONFIG["timeout_multiplier"],
+                read=30 * SYSTEM_CONFIG["timeout_multiplier"],
+                write=10 * SYSTEM_CONFIG["timeout_multiplier"],
+                pool=30 * SYSTEM_CONFIG["timeout_multiplier"]
+            ),
+            limits=httpx.Limits(
+                max_keepalive_connections=5,
+                max_connections=10,
+                keepalive_expiry=30
+            ),
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        )
+    return _http_clients[domain]
+
+
+# ===========================
 # Config optimizada (performance final)
 # ===========================
 MAX_INTERNAL_LINKS = 40           # Reducido más: 60→40
 TOP_CANDIDATES_BY_KEYWORD = 6     # Reducido más: 8→6  
 MAX_PAGES_FREE_PLAN = 2           # Reducido más: 3→2
-TIMEOUT_ULTRA_FAST = 1.5          # Reducido de 2s
-TIMEOUT_FAST = 3                  # Reducido de 5s
-TIMEOUT_NORMAL = 6                # Reducido de 8s
-TIMEOUT_PATIENT = 10              # NUEVO: Para sitios pesados
-TIMEOUT_LAST_RESORT = 15          # NUEVO: Último intento
+TIMEOUT_ULTRA_FAST = int(1.5 * SYSTEM_CONFIG["timeout_multiplier"])
+TIMEOUT_FAST = int(3 * SYSTEM_CONFIG["timeout_multiplier"])
+TIMEOUT_NORMAL = int(6 * SYSTEM_CONFIG["timeout_multiplier"])
+TIMEOUT_PATIENT = int(10 * SYSTEM_CONFIG["timeout_multiplier"])
+TIMEOUT_LAST_RESORT = int(15 * SYSTEM_CONFIG["timeout_multiplier"])
 
 # Cache simple para resolución de dominios
 _domain_cache = {}
@@ -119,10 +199,89 @@ def health():
     return {"ok": True}
 
 
-@app.post("/scan", response_model=ScanResponse, summary="Escanear información de empresa")
+@app.post("/scan", response_model=UnifiedScanResponse, summary="Escanear información de empresa (único o múltiple)")
 async def scan(req: ScanRequest):
     """
-    ESCÁNER ULTRA-OPTIMIZADO:
+    ESCÁNER UNIFICADO ULTRA-OPTIMIZADO:
+    - Soporta escaneo único (domain) o múltiple (domains)
+    - Timeouts escalonados inteligentes  
+    - Configuración adaptativa para recursos limitados
+    - Cache de domain resolution
+    - Manejo robusto de errores con diagnósticos
+    - Optimizado para 0.1 CPU + 512MB RAM
+    """
+    
+    # Determinar tipo de escaneo
+    if req.domains:
+        # ESCANEO MÚLTIPLE (PARALELO)
+        return await _batch_scan(req.domains)
+    elif req.domain:
+        # ESCANEO ÚNICO
+        result = await _single_scan(req)
+        return UnifiedScanResponse(
+            scan_type="single",
+            single_result=result
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Must provide either 'domain' or 'domains'")
+
+
+async def _batch_scan(domains: List[str]) -> UnifiedScanResponse:
+    """Procesa múltiples dominios en paralelo de manera optimizada"""
+    if len(domains) > 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 domains per batch")
+    
+    start_time = time.time()
+    
+    async with _global_semaphore:
+        try:
+            # Usar el scanner optimizado
+            from .optimized_parallel_scanner import OptimizedParallelScanner
+            
+            scanner = OptimizedParallelScanner(
+                semaphore=_global_semaphore,
+                http_clients=_http_clients,
+                system_config=SYSTEM_CONFIG
+            )
+            
+            results = await scanner.scan_multiple_domains(domains)
+            
+            # Estadísticas de la ejecución
+            total_time = time.time() - start_time
+            successful_scans = sum(1 for r in results.values() if r.get("status") == "success")
+            
+            batch_response = BatchScanResponse(
+                batch_id=f"batch_{int(time.time())}",
+                total_domains=len(domains),
+                successful_scans=successful_scans,
+                failed_scans=len(domains) - successful_scans,
+                execution_time=f"{total_time:.2f}s",
+                resource_profile=SYSTEM_CONFIG["profile"],
+                results=results,
+                performance_stats={
+                    "avg_time_per_domain": f"{total_time / len(domains):.2f}s",
+                    "success_rate": f"{(successful_scans / len(domains) * 100):.1f}%",
+                    "concurrent_limit": SYSTEM_CONFIG["concurrent_domains"],
+                    "memory_profile": SYSTEM_CONFIG.get("memory_limit_mb", "unknown")
+                }
+            )
+            
+            return UnifiedScanResponse(
+                scan_type="batch", 
+                batch_result=batch_response
+            )
+            
+        except Exception as e:
+            logger.error(f"Batch scan error: {str(e)}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Batch scan failed: {str(e)}"
+            )
+
+
+async def _single_scan(req: ScanRequest) -> ScanResponse:
+    """
+    ESCÁNER INDIVIDUAL ULTRA-OPTIMIZADO:
     - Timeouts escalonados inteligentes
     - Cache de domain resolution
     - Manejo robusto de errores con diagnósticos
@@ -144,7 +303,7 @@ async def scan(req: ScanRequest):
                 base = _domain_cache[req.domain]
                 print(f"✅ Cache hit para {req.domain} -> {base}")
             else:
-                base = smart_domain_resolver(req.domain, timeout=2)  # Timeout aún más agresivo
+                base = smart_domain_resolver(req.domain, timeout=2 * SYSTEM_CONFIG["timeout_multiplier"])
                 # Add to cache
                 if len(_domain_cache) >= _cache_max_size:
                     # Simple LRU: remove first item
@@ -443,3 +602,25 @@ async def scan(req: ScanRequest):
         })
 
 
+# ===========================
+# RESOURCE MONITORING ENDPOINT
+# ===========================
+
+@app.get("/system/resources")
+async def get_system_status():
+    """
+    Endpoint para monitorear el estado del sistema y recursos
+    """
+    return {
+        "system_config": SYSTEM_CONFIG,
+        "active_connections": len(_http_clients),
+        "semaphore_available": _global_semaphore._value,
+        "cache_size": len(_domain_cache),
+        "uptime": "running",
+        "optimization_tips": [
+            f"Current profile: {SYSTEM_CONFIG['profile']}",
+            f"Max concurrent domains: {SYSTEM_CONFIG['concurrent_domains']}",
+            f"Timeout multiplier: {SYSTEM_CONFIG['timeout_multiplier']}x",
+            "Monitor memory usage with limited resources"
+        ]
+    }

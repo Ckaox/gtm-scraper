@@ -5,7 +5,8 @@ from typing import List, Optional, Dict, Any
 # -------- Inputs
 
 class ScanRequest(BaseModel):
-    domain: str
+    domain: Optional[str] = None
+    domains: Optional[List[str]] = None
     max_pages: int = Field(default=8, ge=1, le=20)
     extra_urls: List[AnyHttpUrl] = []
     careers_overrides: List[AnyHttpUrl] = []
@@ -18,6 +19,22 @@ class ScanRequest(BaseModel):
     company_name: Optional[str] = None
 
     # --- Validators ---
+    @field_validator("domains", mode="before")
+    def validate_domains_input(cls, v, values):
+        """Validar que se proporcione domain o domains, pero no ambos"""
+        domain = values.data.get('domain') if hasattr(values, 'data') else None
+        
+        if not domain and not v:
+            raise ValueError("Must provide either 'domain' or 'domains'")
+        if domain and v:
+            raise ValueError("Cannot provide both 'domain' and 'domains'")
+        if v and len(v) > 20:
+            raise ValueError("Maximum 20 domains allowed")
+        if v and len(v) == 0:
+            raise ValueError("'domains' cannot be empty")
+            
+        return v
+
     @field_validator("company_linkedin", mode="before")
     def empty_str_to_none_url(cls, v):
         if v is None or (isinstance(v, str) and v.strip() == ""):
@@ -134,3 +151,22 @@ class ScanResponse(BaseModel):
     # Optional internal data (shown conditionally)
     pages_crawled: List[str] = []
     recent_news: List[NewsItem] = []  # Only 3 most recent news
+
+
+class BatchScanResponse(BaseModel):
+    """Respuesta para escaneos múltiples"""
+    batch_id: str
+    total_domains: int
+    successful_scans: int
+    failed_scans: int
+    execution_time: str
+    resource_profile: str
+    results: Dict[str, Dict[str, Any]]  # domain -> scan result
+    performance_stats: Dict[str, Any]
+
+
+class UnifiedScanResponse(BaseModel):
+    """Respuesta unificada que puede ser única o múltiple"""
+    scan_type: str  # "single" o "batch"
+    single_result: Optional[ScanResponse] = None
+    batch_result: Optional[BatchScanResponse] = None
