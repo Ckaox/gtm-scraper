@@ -116,11 +116,10 @@ class OptimizedParallelScanner:
     async def scan_multiple_domains(self, domains: List[str], max_concurrent: int = None) -> Dict[str, Any]:
         """Scan múltiples dominios en paralelo con control de recursos"""
         if max_concurrent is None:
-            max_concurrent = self.config["max_concurrent_domains"]
+            max_concurrent = self.config["concurrent_domains"]  # Corregido: era max_concurrent_domains
         
         start_time = time.time()
         print(f"🚀 PARALLEL SCAN: {len(domains)} dominios con max {max_concurrent} concurrentes")
-        print(f"   Memoria profile: {self.config['memory_profile']} ({self.config['memory_mb']}MB)")
         
         # Procesar en batches para controlar memoria
         results = []
@@ -171,7 +170,7 @@ class OptimizedParallelScanner:
             "total_time": total_time,
             "avg_processing_time": avg_processing_time,
             "domains_per_minute": domains_per_minute,
-            "memory_profile": self.config["memory_profile"],
+            "resource_profile": self.config["profile"],  # Corregido: era memory_profile
             "max_concurrent": max_concurrent,
             "results": results
         }

@@ -248,7 +248,28 @@ async def _batch_scan(domains: List[str]) -> UnifiedScanResponse:
             
             # Estadísticas de la ejecución
             total_time = time.time() - start_time
-            successful_scans = sum(1 for r in results.values() if r.get("status") == "success")
+            
+            # El scanner devuelve un dict con structure diferente, necesitamos adaptarlo
+            scan_results = {}
+            successful_scans = 0
+            
+            for result in results.get("results", []):
+                domain = result.get("domain")
+                if result.get("status") == "success":
+                    successful_scans += 1
+                    scan_results[domain] = {
+                        "success": True,
+                        "status": "success",
+                        "data": result.get("data", {}),
+                        "processing_time": result.get("processing_time", 0)
+                    }
+                else:
+                    scan_results[domain] = {
+                        "success": False,
+                        "status": result.get("status", "error"),
+                        "error": result.get("error", "Unknown error"),
+                        "processing_time": result.get("processing_time", 0)
+                    }
             
             batch_response = BatchScanResponse(
                 batch_id=f"batch_{int(time.time())}",
@@ -257,7 +278,7 @@ async def _batch_scan(domains: List[str]) -> UnifiedScanResponse:
                 failed_scans=len(domains) - successful_scans,
                 execution_time=f"{total_time:.2f}s",
                 resource_profile=SYSTEM_CONFIG["profile"],
-                results=results,
+                results=scan_results,
                 performance_stats={
                     "avg_time_per_domain": f"{total_time / len(domains):.2f}s",
                     "success_rate": f"{(successful_scans / len(domains) * 100):.1f}%",
