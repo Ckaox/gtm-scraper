@@ -333,21 +333,19 @@ def health():
     return {"ok": True}
 
 
-@app.post("/scan", response_model=UnifiedScanResponse, summary="Escanear información de empresa (único o múltiple)")
+@app.post("/scan", response_model=ScanResponse, summary="Escanear información de empresa")
 async def scan(req: ScanRequest):
     """
-    ESCÁNER UNIFICADO ULTRA-OPTIMIZADO CON AUTO-BATCHING:
-    - Soporta escaneo único (domain) o múltiple (domains)
-    - Auto-batching inteligente para requests simultáneos (perfecto para Clay)
-    - Timeouts escalonados inteligentes  
-    - Configuración adaptativa para recursos limitados
-    - Cache de domain resolution
-    - Manejo robusto de errores con diagnósticos
-    - Optimizado para 0.1 CPU + 512MB RAM
+    ESCÁNER GTM OPTIMIZADO PARA CLAY:
+    - Devuelve datos directamente sin wrappers
+    - Detección de CRM, tech stack, industria
+    - Análisis de SEO y métricas sociales
+    - Optimizado para integración con Clay
     """
     
-    # Usar sistema de auto-batching que detecta múltiples requests simultáneos
-    return await _maybe_auto_batch(req)
+    # Procesar directamente el scan único - devolver datos planos para Clay
+    result = await _single_scan(req)
+    return result
 
 
 async def _batch_scan(domains: List[str]) -> UnifiedScanResponse:
