@@ -325,7 +325,7 @@ def _socials_from_html(html: str) -> dict:
 # FastAPI
 # ---------------------------
 
-app = FastAPI(title="Maxi GTM Scan", version="0.2.0")
+app = FastAPI(title="GTM Scan", version="0.2.0")
 
 
 @app.get("/health")
