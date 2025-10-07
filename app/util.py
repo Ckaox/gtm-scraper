@@ -12,7 +12,15 @@ DEFAULT_PATHS = [  # fallback si falla la home
     "/book", "/reservar", "/meeting", "/reunion", "/appointment", "/cita",
     "/schedule", "/agendar", "/demo", "/consultation", "/consultoria",
     "/discovery", "/descubrimiento", "/free-call", "/llamada-gratuita",
-    "/get-started", "/comenzar", "/quote", "/cotizar",
+    "/get-started", "/comenzar", "/quote", "/cotizar", "/booking", "/forms",
+    # Páginas adicionales para detectar más tecnologías
+    "/login", "/signup", "/register", "/account", "/dashboard", "/admin",
+    "/checkout", "/cart", "/shop", "/store", "/tienda", "/comprar",
+    "/support", "/help", "/ayuda", "/soporte", "/faq", "/pricing", "/precios",
+    "/features", "/caracteristicas", "/tools", "/herramientas", "/integrations",
+    "/api", "/developers", "/documentation", "/docs", "/resources", "/recursos",
+    "/case-studies", "/casos-de-exito", "/testimonials", "/testimonios",
+    "/partners", "/socios", "/affiliates", "/afiliados", "/resellers",
     # ES
     "/es", "/empresa", "/quienes-somos", "/nosotros",
     "/producto", "/productos", "/servicios", "/soluciones",

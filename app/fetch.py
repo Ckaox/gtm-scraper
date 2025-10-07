@@ -124,13 +124,22 @@ def discover_feeds_from_html(base_url: str, html: str) -> List[str]:
     return list(feeds)
 
 def extract_internal_links(base_url: str, html: str, max_links: int = 200) -> List[str]:
+    """Extract internal links with priority for tech-rich pages"""
     if not html:
         return []
     base = httpx.URL(base_url)
     host = base.host
     soup = BeautifulSoup(html, "lxml")
-    out: List[str] = []
+    
+    # Priority keywords for tech detection
+    HIGH_PRIORITY = ["contact", "contacto", "booking", "demo", "login", "dashboard", "admin", "checkout", "cart", "shop", "api", "developer"]
+    MEDIUM_PRIORITY = ["about", "product", "pricing", "features", "support", "integration", "tool", "service"]
+    
+    high_priority_links = []
+    medium_priority_links = []
+    regular_links = []
     seen = set()
+    
     for a in soup.find_all("a", href=True):
         href = a.get("href")
         try:
@@ -140,7 +149,17 @@ def extract_internal_links(base_url: str, html: str, max_links: int = 200) -> Li
         u = httpx.URL(abs_url)
         if u.host and host and u.host.endswith(host.split(".", 1)[-1]):
             if abs_url not in seen:
-                seen.add(abs_url); out.append(abs_url)
-        if len(out) >= max_links:
-            break
-    return out
+                seen.add(abs_url)
+                
+                # Categorize by priority based on URL path
+                path_lower = u.path.lower()
+                if any(keyword in path_lower for keyword in HIGH_PRIORITY):
+                    high_priority_links.append(abs_url)
+                elif any(keyword in path_lower for keyword in MEDIUM_PRIORITY):
+                    medium_priority_links.append(abs_url)
+                else:
+                    regular_links.append(abs_url)
+    
+    # Return prioritized list
+    prioritized = high_priority_links + medium_priority_links + regular_links
+    return prioritized[:max_links]
