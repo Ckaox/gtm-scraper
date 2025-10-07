@@ -29,20 +29,23 @@ DEFAULT_PATHS = [  # fallback si falla la home
 ]
 
 PRIORITY_KEYWORDS = {
+    "crm_pages": ["contact", "contacto", "call", "llamada", "calendar", "calendario", "book", "reservar", 
+                  "booking", "meeting", "reunion", "appointment", "cita", "schedule", "agendar", "demo", 
+                  "consultation", "consultoria", "discovery", "descubrimiento", "free-call", "llamada-gratuita",
+                  "get-started", "comenzar", "quote", "cotizar", "login", "dashboard", "checkout", "cart"],
     "about": ["about", "company", "quienes-somos", "nosotros", "empresa"],
     "product": ["product", "products", "platform", "solution", "solutions", "producto", "productos", "servicios", "soluciones"],
     "blog": ["blog"],
     "news": ["news", "press", "noticias", "prensa"],
     "careers": ["careers", "jobs", "empleo", "empleos", "trabajo", "talento", "carreras", "trabaja", "join-us"],
-    "contact": ["contact", "contacto", "call", "llamada", "calendar", "calendario", "book", "reservar", 
-               "meeting", "reunion", "appointment", "cita", "schedule", "agendar", "demo", "consultation", 
-               "consultoria", "discovery", "descubrimiento", "free-call", "llamada-gratuita"]
+    "support": ["support", "help", "ayuda", "soporte", "faq", "documentation", "docs", "api", "developers"]
 }
 
 KEYWORD_WEIGHTS = {
+    "crm_pages": 10,  # Máxima prioridad para páginas con CRM
     "careers": 3,
     "product": 3,
-    "contact": 2,  # Páginas de contacto tienen prioridad alta para detectar CRMs
+    "support": 2,
     "about": 2,
     "news": 2,
     "blog": 1,

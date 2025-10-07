@@ -576,10 +576,10 @@ async def _single_scan(req: ScanRequest) -> ScanResponse:
         emails = []
         news_items = []
         
-        # Solo buscar páginas adicionales si el request lo permite y tenemos tiempo
-        if req.max_pages > 1 and timings.get("html_fetch", 0) < 3:  # Aún más agresivo: 5→3
+        # Solo buscar páginas adicionales si el request lo permite
+        if req.max_pages > 1:  # Removemos la restricción de timeout
             try:
-                # Discovery ultra-limitado
+                # Discovery mejorado para encontrar páginas con CRM/tech
                 links = extract_internal_links(base, home_html, max_links=MAX_INTERNAL_LINKS)  # Usa config
                 scored = [(keyword_score(httpx.URL(u).path), u) for u in links if not looks_blocklisted(u)]
                 scored.sort(reverse=True, key=lambda x: x[0])
@@ -595,7 +595,9 @@ async def _single_scan(req: ScanRequest) -> ScanResponse:
                 max_pages = min(req.max_pages, MAX_PAGES_FREE_PLAN)  # Usa config
                 candidates = candidates[:max_pages]
                 
-                # Fetch adicional con timeout muy corto
+                print(f"🔗 Explorando {len(candidates)} páginas candidatas para {req.domain}")
+                
+                # Fetch adicional con timeout optimizado
                 fetched = await fetch_many(candidates, respect_robots=req.respect_robots, timeout=TIMEOUT_FAST)  # Usa config
                 
                 for final_url, html in fetched:
@@ -629,7 +631,7 @@ async def _single_scan(req: ScanRequest) -> ScanResponse:
             except Exception as e:
                 error_details.append(f"Additional pages processing failed: {str(e)}")
         else:
-            print(f"⏩ Saltando páginas adicionales (fetch time: {timings.get('html_fetch', 0):.2f}s)")
+            print(f"⏩ Páginas adicionales deshabilitadas (max_pages={req.max_pages})")
         
         timings["additional_processing"] = time.time() - step_start
 
