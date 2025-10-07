@@ -7,6 +7,12 @@ from typing import Optional
 DEFAULT_PATHS = [  # fallback si falla la home
     "/", "/about", "/company", "/product", "/platform", "/solutions",
     "/blog", "/news", "/press", "/careers", "/jobs",
+    # Páginas de contacto y calendario (para detectar CRMs como GoHighLevel)
+    "/contact", "/contacto", "/call", "/llamada", "/calendar", "/calendario", 
+    "/book", "/reservar", "/meeting", "/reunion", "/appointment", "/cita",
+    "/schedule", "/agendar", "/demo", "/consultation", "/consultoria",
+    "/discovery", "/descubrimiento", "/free-call", "/llamada-gratuita",
+    "/get-started", "/comenzar", "/quote", "/cotizar",
     # ES
     "/es", "/empresa", "/quienes-somos", "/nosotros",
     "/producto", "/productos", "/servicios", "/soluciones",
@@ -19,12 +25,16 @@ PRIORITY_KEYWORDS = {
     "product": ["product", "products", "platform", "solution", "solutions", "producto", "productos", "servicios", "soluciones"],
     "blog": ["blog"],
     "news": ["news", "press", "noticias", "prensa"],
-    "careers": ["careers", "jobs", "empleo", "empleos", "trabajo", "talento", "carreras", "trabaja", "join-us"]
+    "careers": ["careers", "jobs", "empleo", "empleos", "trabajo", "talento", "carreras", "trabaja", "join-us"],
+    "contact": ["contact", "contacto", "call", "llamada", "calendar", "calendario", "book", "reservar", 
+               "meeting", "reunion", "appointment", "cita", "schedule", "agendar", "demo", "consultation", 
+               "consultoria", "discovery", "descubrimiento", "free-call", "llamada-gratuita"]
 }
 
 KEYWORD_WEIGHTS = {
     "careers": 3,
     "product": 3,
+    "contact": 2,  # Páginas de contacto tienen prioridad alta para detectar CRMs
     "about": 2,
     "news": 2,
     "blog": 1,

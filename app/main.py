@@ -247,8 +247,8 @@ async def _wait_and_process_batch():
 # Config optimizada (performance final)
 # ===========================
 MAX_INTERNAL_LINKS = 40           # Reducido más: 60→40
-TOP_CANDIDATES_BY_KEYWORD = 6     # Reducido más: 8→6  
-MAX_PAGES_FREE_PLAN = 2           # Reducido más: 3→2
+TOP_CANDIDATES_BY_KEYWORD = 10    # Aumentado para DigitalOcean: 6→10
+MAX_PAGES_FREE_PLAN = 15          # Aumentado para DigitalOcean: 2→15
 TIMEOUT_ULTRA_FAST = int(1.5 * SYSTEM_CONFIG["timeout_multiplier"])
 TIMEOUT_FAST = int(3 * SYSTEM_CONFIG["timeout_multiplier"])
 TIMEOUT_NORMAL = int(6 * SYSTEM_CONFIG["timeout_multiplier"])
@@ -544,10 +544,11 @@ async def _single_scan(req: ScanRequest) -> ScanResponse:
             print(f"❌ Industry Detection Error: {str(e)}")
             timings["industry_detection"] = time.time() - step_start
 
-        # 💻 ETAPA 5: TECH STACK DETECTION OPTIMIZADA
+        # 💻 ETAPA 5: TECH STACK DETECTION OPTIMIZADA - MEJORADO PARA MÚLTIPLES PÁGINAS
         step_start = time.time()
         tech_stack = {}
         try:
+            # Analizar tech stack de la homepage
             tech = detect_tech(base, home_html)
             tech_by_category = {}
             
@@ -561,15 +562,10 @@ async def _single_scan(req: ScanRequest) -> ScanResponse:
                 if evidence:
                     tech_by_category[category]["evidence"].append(evidence)
 
-            for cat, data in tech_by_category.items():
-                if data["tools"]:  # Solo incluir categorías con tools
-                    tech_stack[cat] = TechFingerprint(
-                        tools=list(data["tools"]),
-                        evidence=" | ".join(data["evidence"][:2])  # Max 2 evidencias
-                    )
+            # ⚠️ NO construir tech_stack aquí - esperar a procesar todas las páginas
             
             timings["tech_stack"] = time.time() - step_start
-            print(f"💻 Tech: {len(tech_stack)} categorías en {timings['tech_stack']:.3f}s")
+            print(f"💻 Tech: análisis inicial en {timings['tech_stack']:.3f}s")
             
         except Exception as e:
             error_details.append(f"Tech stack detection failed: {str(e)}")
@@ -591,6 +587,13 @@ async def _single_scan(req: ScanRequest) -> ScanResponse:
                 scored.sort(reverse=True, key=lambda x: x[0])
                 
                 candidates = [base] + [u for _, u in scored[:TOP_CANDIDATES_BY_KEYWORD]]  # Usa config
+                
+                # ✅ NUEVO: Agregar extra_urls si están especificadas
+                if req.extra_urls:
+                    extra_urls_str = [str(url) for url in req.extra_urls]
+                    candidates.extend(extra_urls_str)
+                    print(f"📌 Agregadas {len(extra_urls_str)} URLs extra: {extra_urls_str}")
+                
                 max_pages = min(req.max_pages, MAX_PAGES_FREE_PLAN)  # Usa config
                 candidates = candidates[:max_pages]
                 
@@ -600,6 +603,21 @@ async def _single_scan(req: ScanRequest) -> ScanResponse:
                 for final_url, html in fetched:
                     if html and final_url != base:
                         additional_pages.append(final_url)
+                        
+                        # ✅ NUEVO: Analizar tech stack en páginas adicionales
+                        try:
+                            additional_tech = detect_tech(final_url, html)
+                            for tech_item in additional_tech:
+                                category = tech_item.get("category", "other")
+                                if category not in tech_by_category:
+                                    tech_by_category[category] = {"tools": set(), "evidence": []}
+                                
+                                tech_by_category[category]["tools"].update(tech_item.get("tools", []))
+                                evidence = tech_item.get("evidence", "")
+                                if evidence:
+                                    tech_by_category[category]["evidence"].append(evidence)
+                        except Exception as e:
+                            print(f"⚠️ Error analyzing tech stack for {final_url}: {str(e)}")
                         
                         # Extracciones ultra-limitadas para no perder tiempo
                         if len(social) < 2:
@@ -617,7 +635,19 @@ async def _single_scan(req: ScanRequest) -> ScanResponse:
         
         timings["additional_processing"] = time.time() - step_start
 
-        # 📊 ETAPA 7: SEO METRICS BÁSICOS
+        # � CONSTRUIR TECH_STACK FINAL después de analizar todas las páginas
+        try:
+            for cat, data in tech_by_category.items():
+                if data["tools"]:  # Solo incluir categorías con tools
+                    tech_stack[cat] = TechFingerprint(
+                        tools=list(data["tools"]),
+                        evidence=" | ".join(data["evidence"][:2])  # Max 2 evidencias
+                    )
+            print(f"🔧 Tech Stack final: {len(tech_stack)} categorías")
+        except Exception as e:
+            error_details.append(f"Tech stack final construction failed: {str(e)}")
+
+        # �📊 ETAPA 7: SEO METRICS BÁSICOS
         step_start = time.time()
         seo_metrics = None
         try:

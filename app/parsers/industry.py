@@ -9,9 +9,10 @@ from typing import List, Dict, Tuple, Optional
 # ============================================================
 
 INDUSTRIAS: Dict[str, List[str]] = {
-    # Automóviles y Vehículos (NUEVA INDUSTRIA)
+    # Automóviles y Vehículos (NUEVA INDUSTRIA) - Reducido para evitar falsos positivos
     "Automóviles y Vehículos": [
-        "auto", "autos", "automovil", "automóvil", "automoviles", "automóviles", "vehiculo", "vehículo", "vehiculos", "vehículos", "coche", "coches", "carro", "carros", "car", "cars", "vehicle", "vehicles", "automotive", "automotriz", "concesionario", "concesionarios", "dealer", "dealers", "jeep", "ford", "chevrolet", "toyota", "honda", "nissan", "hyundai", "kia", "volkswagen", "bmw", "mercedes", "audi", "peugeot", "renault", "citroen", "citroën", "fiat", "seat", "skoda", "suzuki", "mazda", "mitsubishi", "subaru", "volvo", "jaguar", "land rover", "porsche", "ferrari", "lamborghini", "maserati", "tesla", "pickup", "suv", "sedan", "hatchback", "convertible", "coupe", "minivan", "truck", "camion", "camión", "motocicleta", "moto", "motorcycle", "scooter", "atv", "quad", "repuestos", "refacciones", "spare parts", "auto parts", "taller", "mecanico", "mecánico", "mechanic", "garage", "servicio automotriz", "automotive service", "cambio de aceite", "oil change", "neumatico", "neumático", "tire", "tires", "llanta", "llantas", "frenos", "brakes", "bateria", "batería", "battery", "motor", "engine", "transmision", "transmisión", "transmission"
+        "automovil", "automóvil", "automoviles", "automóviles", "vehiculo comercial", "vehículo comercial", "vehiculos comerciales", "vehículos comerciales", 
+        "concesionario", "concesionarios", "dealer", "dealers", "jeep", "ford", "chevrolet", "toyota", "honda", "nissan", "hyundai", "kia", "volkswagen", "bmw", "mercedes", "audi", "peugeot", "renault", "citroen", "citroën", "fiat", "seat", "skoda", "suzuki", "mazda", "mitsubishi", "subaru", "volvo", "jaguar", "land rover", "porsche", "ferrari", "lamborghini", "maserati", "tesla", "pickup", "suv", "sedan", "hatchback", "convertible", "coupe", "minivan", "truck automotriz", "camion automotriz", "camión automotriz", "motocicleta", "moto comercial", "motorcycle dealer", "scooter dealer", "atv", "quad", "repuestos automotriz", "refacciones automotriz", "auto parts", "spare parts automotriz", "taller mecanico", "taller mecánico", "mecanico automotriz", "mecánico automotriz", "mechanic shop", "garage automotriz", "servicio automotriz", "automotive service", "cambio de aceite", "oil change", "neumatico automotriz", "neumático automotriz", "tire shop", "tires dealer", "llanta automotriz", "llantas automotriz", "frenos automotriz", "brakes automotriz", "bateria automotriz", "batería automotriz", "battery automotriz", "motor automotriz", "engine automotriz", "transmision automotriz", "transmisión automotriz", "transmission automotriz", "automotive dealer", "automotive sales", "car dealership", "vehicle sales", "automotive industry"
     ],
     
     # Supermercados y Retail Alimentario (NUEVA INDUSTRIA)
@@ -288,7 +289,16 @@ INDUSTRIAS: Dict[str, List[str]] = {
         "diseño grafico", "diseño gráfico", "creatividad", "campana", "campaña", "campañas", "medios", "advertising",
         "social media", "redes sociales", "influencer", "content marketing", "email marketing", "adwords", "facebook ads",
         "advertising", "media", "marketing agency", "seo", "sem", "digital marketing", "social media marketing",
-        "content marketing", "brand strategy", "creative agency", "media agency", "public relations", "graphic design"
+        "content marketing", "brand strategy", "creative agency", "media agency", "public relations", "graphic design",
+        # Outbound Marketing y Lead Generation específicos
+        "outbound", "lead generation", "lead gen", "leads", "pipeline", "prospect", "prospectos", "prospecting",
+        "cold email", "cold calling", "outreach", "sales development", "sdr", "bdr", "business development",
+        "lead qualification", "lead scoring", "demand generation", "demand gen", "qualified leads", "leads cualificados",
+        "sales funnel", "conversion", "conversiones", "growth hacking", "growth marketing", "acquisition",
+        "customer acquisition", "adquisicion", "adquisición", "inbound", "inbound marketing", "marketing automation",
+        "crm", "customer relationship", "sales enablement", "sales acceleration", "revenue operations", "revops",
+        "account based marketing", "abm", "personalization", "segmentation", "targeting", "retargeting",
+        "smartlead", "outbound partner", "certified partner", "partner certificado", "sales qualified", "mql", "sql"
     ],
     "Entretenimiento y Eventos": [
         "entretenimiento", "evento", "eventos", "ticketing", "concierto", "conciertos", "festival", "festivales", "teatro", "teatros", "cine", "espectaculo", "espectáculo", "espectáculos", "show", "shows", "musica", "música", "artista", "artistas", "productor", "productora", "organizacion de eventos", "organización de eventos", "salon de fiestas", "salón de fiestas", "wedding planner", "dj", "sonido", "iluminacion escenica", "iluminación escénica", "entertainment", "events", "ticketing", "concert", "festival", "theater", "cinema", "show", "music", "artist", "event production", "event management", "party planning", "wedding planning", "live entertainment", "event shop", "event store", "ticket shop", "ticket store", "concierto shop", "concierto store", "festival shop", "festival store", "cine shop", "cine store", "musica shop", "musica store", "show shop", "show store", "fiesta shop", "fiesta store", "wedding shop", "wedding store"
@@ -370,26 +380,70 @@ INDUSTRIAS: Dict[str, List[str]] = {
 def _score_text(text: str, keywords: List[str]) -> Tuple[int, List[str]]:
     """
     Improved scoring function that considers word boundaries and keyword weights.
+    Uses word boundaries for potentially ambiguous words to avoid false positives.
+    Filters out technical/CSS contexts for ambiguous automotive terms.
     """
     import re
     low = text.lower()
     hits = []
     score = 0
     
+    # Palabras que SIEMPRE deben usar word boundaries para evitar falsos positivos
+    word_boundary_required = {
+        "car", "cars", "auto", "autos", "vehicle", "vehicles", "motor", "battery", 
+        "engine", "tire", "tires", "api", "app", "data", "web", "tech", "digital",
+        "online", "internet", "software", "hardware", "system", "network", "cloud",
+        "mobile", "phone", "email", "mail", "shop", "store", "market", "service",
+        "services", "product", "products", "business", "company", "enterprise"
+    }
+    
+    # Palabras que son muy ambiguas y necesitan contexto específico para evitar falsos positivos
+    highly_ambiguous = {"auto", "car", "cars", "motor", "battery", "engine", "data", "app", "api"}
+    
     for kw in keywords:
         kw_lower = kw.lower()
-        # Si la keyword es 'api' o muy corta, solo cuenta si es palabra completa
-        if kw_lower == "api" or len(kw_lower) <= 2:
+        
+        # Usar word boundaries si la palabra está en la lista de ambiguas O es muy corta
+        if kw_lower in word_boundary_required or len(kw_lower) <= 3:
             pattern = r'\b' + re.escape(kw_lower) + r'\b'
-            if re.search(pattern, low):
-                score += 0.5 if len(kw_lower) <= 2 else 1.0
+            matches = re.finditer(pattern, low)
+            
+            valid_matches = 0
+            for match in matches:
+                # Para palabras muy ambiguas, verificar que no estén en contexto técnico
+                if kw_lower in highly_ambiguous:
+                    # Obtener contexto alrededor del match
+                    start = max(0, match.start() - 50)
+                    end = min(len(low), match.end() + 50)
+                    context = low[start:end]
+                    
+                    # Skipear si está en contexto técnico/CSS/HTML
+                    if any(tech_term in context for tech_term in [
+                        "width:", "height:", "size=", "auto-", "-auto", "margin-", 
+                        "padding-", "flex:", "grid-", "overflow:", "css", "style",
+                        "px", "rem", "vh", "vw", "auto;", "auto,", "auto }", "auto)", 
+                        "sizes=", "generated", "preset", "wp-", "elementor",
+                        # Para 'data': contextos técnicos
+                        "data-", "-data", "dataset", "metadata", "data:", "data=",
+                        "data{", "data}", "data[", "data]", "json", "javascript",
+                        "script", "<script", "element_type", "data_id", "data_element"
+                    ]):
+                        continue
+                
+                valid_matches += 1
+            
+            if valid_matches > 0:
+                # Palabras más largas tienen más peso
+                keyword_weight = max(0.5, min(2.0, len(kw_lower) / 4.0))
+                score += keyword_weight * valid_matches
                 hits.append(kw)
         else:
-            # Para keywords largas, substring + bonus si es palabra completa
+            # Para keywords largas y específicas, substring + bonus si es palabra completa
             if kw_lower in low:
                 keyword_weight = min(2.0, len(kw_lower) / 5.0)
                 score += keyword_weight
                 hits.append(kw)
+                # Bonus si es palabra completa
                 pattern = r'\b' + re.escape(kw_lower) + r'\b'
                 if re.search(pattern, low):
                     score += 0.5

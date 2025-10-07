@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Any
 class ScanRequest(BaseModel):
     domain: Optional[str] = None
     domains: Optional[List[str]] = None
-    max_pages: int = Field(default=8, ge=1, le=20)
+    max_pages: int = Field(default=12, ge=1, le=30)  # Aumentado de 8 a 12 por defecto, máximo de 30
     extra_urls: List[AnyHttpUrl] = []
     careers_overrides: List[AnyHttpUrl] = []
     respect_robots: bool = True
@@ -28,8 +28,8 @@ class ScanRequest(BaseModel):
             raise ValueError("Must provide either 'domain' or 'domains'")
         if domain and v:
             raise ValueError("Cannot provide both 'domain' and 'domains'")
-        if v and len(v) > 20:
-            raise ValueError("Maximum 20 domains allowed")
+        if v and len(v) > 50:  # Aumentado de 20 a 50 dominios
+            raise ValueError("Maximum 50 domains allowed")
         if v and len(v) == 0:
             raise ValueError("'domains' cannot be empty")
             
