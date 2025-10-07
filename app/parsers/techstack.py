@@ -5,7 +5,7 @@ import re
 
 PATTERNS = {
     "CMS": [
-        ("WordPress", "wp-content|wp-includes|/wp-json/"),
+        ("WordPress", "wp-content|wp-includes|/wp-json/|wordpress|wp_enqueue_script"),
         ("Webflow", "webflow.css|wf-|webflow.com"),
         ("Squarespace", "squarespace.com|sqs-"),
         ("Wix", "wixstatic|wixsite"),
@@ -19,6 +19,18 @@ PATTERNS = {
         ("Prismic", "prismic.io|cdn.prismic.io"),
         ("DatoCMS", "datocms.com"),
         ("Craft CMS", "craft.js|craftcms"),
+    ],
+    "Page Builders": [
+        ("Elementor", "elementor|hello-elementor"),
+        ("Divi", "divi-theme|et-core"),
+        ("Beaver Builder", "fl-builder"),
+        ("Visual Composer", "js_composer|wpbakery"),
+        ("Gutenberg", "wp-block|wp-editor"),
+        ("Oxygen", "oxygen-"),
+        ("Bricks", "bricks-builder"),
+        ("Brizy", "brizy-"),
+        ("Thrive Architect", "tve_"),
+        ("Breakdance", "breakdance-"),
     ],
     "Ecommerce": [
         ("Shopify", "cdn.shopify.com|/cart.js|shop_money"),
